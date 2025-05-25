@@ -40,7 +40,7 @@ if __name__ == "__main__":
     # Example usage
     add_task_to_queue({
         "task": {
-            "discount_code": "DISNEY",
+            "discount_code": "111",
             "discount_value": 10,
             "discount_type": "percentage"
         },
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     })
     add_task_to_queue({
         "task": {
-            "discount_code": "DISNEY",
+            "discount_code": "222",
             "discount_value": 10,
             "discount_type": "percentage"
         },
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     })
     add_task_to_queue({
         "task": {
-            "discount_code": "DISNEY",
+            "discount_code": "333",
             "discount_value": 10,
             "discount_type": "percentage"
         },

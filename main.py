@@ -114,12 +114,16 @@ def store_worker(store_name: str):
     
     Args:
         store_name (str): The name of the store to process tasks for
-    """    
+    """
+    print(f"Starting new thread for {store_name}", flush=True)
+    
     while store_name in active_stores:
         try:
+            print(f"Store worker {store_name} waiting for tasks...", flush=True)
             # Get task from store's queue with timeout
             try:
                 task = store_queues[store_name].get(timeout=1)
+                print(f"Store worker {store_name} got task: {task}", flush=True)
             except Empty:
                 continue
             
@@ -145,9 +149,11 @@ def dispatcher():
     
     while True:
         try:
+            print("Waiting for tasks in Redis queue...", flush=True)
             # Blocking pop from the central queue with a timeout of 1 second
             task_data = r.blpop("queue:tasks", timeout=1)
             if task_data:
+                print(f"Raw task data received: {task_data}", flush=True)
                 task = json.loads(task_data[1])
                 store_name = task.get("store_name", "default")
                 
