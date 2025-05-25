@@ -9,6 +9,10 @@ from typing import Dict, Any
 from datetime import datetime
 import time
 import logging
+from logging_config import setup_logging
+
+# Setup logging configuration
+setup_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +45,7 @@ def execute_task(task_data: Dict[str, Any]) -> bool:
         
         # TODO: Implement your specific task processing logic here
         # This is where you would add your business logic for processing the task
-        time.sleep(30)
+        time.sleep(10)
         
         logger.info(f"Successfully executed task for store {store_name}")
         return True
