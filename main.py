@@ -144,7 +144,6 @@ def dispatcher():
     
     while True:
         try:
-            print("Waiting for tasks in Redis queue...", flush=True)
             # Blocking pop from the central queue with a timeout of 1 second
             task_data = r.blpop("queue:tasks", timeout=1)
             if task_data:
