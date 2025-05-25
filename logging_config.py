@@ -15,3 +15,7 @@ def setup_logging():
         format='%(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     ) 
+
+    # Configure root logger to propagate messages
+    root_logger = logging.getLogger()
+    root_logger.propagate = True
