@@ -11,12 +11,17 @@ The system consists of:
 - Retry mechanism for failed tasks
 """
 
+import logging
+from logging_config import setup_logging
+
+# Configure logging first, before any other imports
+setup_logging()
+
 import redis
 import json
 import os
 import time
 import threading
-import logging
 from urllib.parse import urlparse
 from typing import Dict, List, Set
 from threading import Lock
@@ -24,10 +29,8 @@ from queue import Queue, Empty
 from collections import defaultdict
 from datetime import datetime, timedelta
 from task_processor import execute_task
-from logging_config import setup_logging
 
-# Configure logging
-setup_logging()
+# Get logger for this module
 logger = logging.getLogger(__name__)
 
 # Parse Redis URL
