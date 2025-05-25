@@ -24,10 +24,7 @@ from queue import Queue, Empty
 from collections import defaultdict
 from datetime import datetime, timedelta
 from task_processor import execute_task
-
-import logging
-logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-logger = logging.getLogger(__name__)
+from main import logger
 
 # Parse Redis URL
 redis_url = os.getenv("REDIS_URL")
@@ -153,6 +150,7 @@ def dispatcher():
         try:
             # Blocking pop from the central queue with a timeout of 1 second
             task_data = r.blpop("queue:tasks", timeout=1)
+            logger.info(f"Waiting for task...")
             if task_data:
                 task = json.loads(task_data[1])
                 store_name = task.get("store_name", "default")
