@@ -67,8 +67,6 @@ def process_store_task(store_name: str, task: dict) -> bool:
     retries = 0
     while retries < MAX_RETRIES:
         try:
-            print(f"Processing task for {store_name}", flush=True)
-            
             # Execute the task using the task processor
             success = execute_task(task)
             
@@ -118,12 +116,9 @@ def store_worker(store_name: str):
     print(f"Starting new thread for {store_name}", flush=True)
     
     while store_name in active_stores:
-        try:
-            print(f"Store worker {store_name} waiting for tasks...", flush=True)
-            # Get task from store's queue with timeout
+        try:            # Get task from store's queue with timeout
             try:
                 task = store_queues[store_name].get(timeout=1)
-                print(f"Store worker {store_name} got task: {task}", flush=True)
             except Empty:
                 continue
             
@@ -153,11 +148,8 @@ def dispatcher():
             # Blocking pop from the central queue with a timeout of 1 second
             task_data = r.blpop("queue:tasks", timeout=1)
             if task_data:
-                print(f"Raw task data received: {task_data}", flush=True)
                 task = json.loads(task_data[1])
                 store_name = task.get("store_name", "default")
-                
-                print(f"Task received for {store_name}", flush=True)
                 
                 # Add task to store's queue
                 store_queues[store_name].put(task)
