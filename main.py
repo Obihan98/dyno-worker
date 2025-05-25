@@ -150,7 +150,9 @@ def dispatcher():
             if task_data:
                 task = json.loads(task_data[1])
                 store_name = task.get("store_name", "default")
-                                
+                
+                print(f"Task received for {store_name}", flush=True)
+                
                 # Add task to store's queue
                 store_queues[store_name].put(task)
                 
