@@ -9,7 +9,12 @@ from typing import Dict, Any
 from datetime import datetime
 import time
 import logging
+from logging_config import setup_logging
 
+# Ensure logging is configured
+setup_logging()
+
+# Get logger for this module
 logger = logging.getLogger(__name__)
 
 def execute_task(task_data: Dict[str, Any]) -> bool:
