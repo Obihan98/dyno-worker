@@ -119,13 +119,17 @@ def store_worker(store_name: str):
     
     while store_name in active_stores:
         try:
+            print(f"Worker {store_name} waiting for task...", flush=True)
             # Get task from store's queue with timeout
             try:
                 task = store_queues[store_name].get(timeout=1)
+                print(f"Worker {store_name} got task: {task}", flush=True)
             except Empty:
+                print(f"Worker {store_name} queue empty, continuing...", flush=True)
                 continue
             
             # Process the task
+            print(f"Worker {store_name} about to process task", flush=True)
             success = process_store_task(store_name, task)
             
             # Mark task as done
