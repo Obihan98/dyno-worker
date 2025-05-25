@@ -145,6 +145,7 @@ def dispatcher():
     while True:
         try:
             # Blocking pop from the central queue with a timeout of 1 second
+            print(time.strftime("%Y-%m-%d %H:%M:%S"), f": Checking for tasks")
             task_data = r.blpop("queue:tasks", timeout=1)
             if task_data:
                 task = json.loads(task_data[1])
