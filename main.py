@@ -16,6 +16,7 @@ import json
 import os
 import time
 import threading
+import logging
 from urllib.parse import urlparse
 from typing import Dict, List, Set
 from threading import Lock
@@ -23,6 +24,14 @@ from queue import Queue, Empty
 from collections import defaultdict
 from datetime import datetime, timedelta
 from task_processor import execute_task
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 # Parse Redis URL
 redis_url = os.getenv("REDIS_URL")
@@ -35,9 +44,9 @@ try:
     r = redis.from_url(redis_url, decode_responses=True)
     # Test the connection
     r.ping()
-    print("Successfully connected to Redis")
+    logger.info("Successfully connected to Redis")
 except redis.ConnectionError as e:
-    print(f"Failed to connect to Redis: {e}")
+    logger.error(f"Failed to connect to Redis: {e}")
     raise
 
 # Global state for store management
@@ -66,7 +75,7 @@ def process_store_task(store_name: str, task: dict) -> bool:
     retries = 0
     while retries < MAX_RETRIES:
         try:
-            print(time.strftime("%Y-%m-%d %H:%M:%S"), f": Processing task for {store_name}")
+            logger.info(f"Processing task for {store_name}")
             
             # Execute the task using the task processor
             success = execute_task(task)
@@ -79,13 +88,13 @@ def process_store_task(store_name: str, task: dict) -> bool:
                 
         except Exception as e:
             retries += 1
-            print(f"Error processing task for store {store_name} (attempt {retries}/{MAX_RETRIES}): {e}")
-            print(f"Task that caused error: {task}")
+            logger.error(f"Error processing task for store {store_name} (attempt {retries}/{MAX_RETRIES}): {e}")
+            logger.error(f"Task that caused error: {task}")
             
             if retries < MAX_RETRIES:
                 time.sleep(RETRY_DELAY)
             else:
-                print(f"Failed to process task for store {store_name} after {MAX_RETRIES} attempts")
+                logger.error(f"Failed to process task for store {store_name} after {MAX_RETRIES} attempts")
                 return False
 
 def cleanup_inactive_stores():
@@ -105,7 +114,7 @@ def cleanup_inactive_stores():
                 if store_name in active_stores:
                     active_stores.remove(store_name)
                     del store_last_activity[store_name]
-                    print(f"Cleaned up inactive store: {store_name}")
+                    logger.info(f"Cleaned up inactive store: {store_name}")
 
 def store_worker(store_name: str):
     """
@@ -114,7 +123,7 @@ def store_worker(store_name: str):
     Args:
         store_name (str): The name of the store to process tasks for
     """
-    print(time.strftime("%Y-%m-%d %H:%M:%S"), f": Starting new thread for {store_name}")
+    logger.info(f"Starting new thread for {store_name}")
     
     while store_name in active_stores:
         try:
@@ -132,28 +141,28 @@ def store_worker(store_name: str):
             
             if not success:
                 # If task failed after all retries, log it for manual review
-                print(f"Task failed for store {store_name}: {task}")
+                logger.error(f"Task failed for store {store_name}: {task}")
                 
         except Exception as e:
-            print(f"Error in store worker {store_name}: {e}")
+            logger.error(f"Error in store worker {store_name}: {e}")
             time.sleep(1)  # Wait before retrying
 
 def dispatcher():
     """
     Central dispatcher that routes tasks to appropriate store workers.
     """
-    print("Starting dispatcher...")
+    logger.info("Starting dispatcher...")
     
     while True:
         try:
             # Blocking pop from the central queue with a timeout of 1 second
-            print(time.strftime("%Y-%m-%d %H:%M:%S"), f": Checking for tasks")
+            logger.info("Checking for tasks")
             task_data = r.blpop("queue:tasks", timeout=1)
             if task_data:
                 task = json.loads(task_data[1])
                 store_name = task.get("store_name", "default")
                 
-                print(time.strftime("%Y-%m-%d %H:%M:%S"), f": Task received for {store_name}")
+                logger.info(f"Task received for {store_name}")
                 
                 # Add task to store's queue
                 store_queues[store_name].put(task)
@@ -174,7 +183,7 @@ def dispatcher():
             cleanup_inactive_stores()
                 
         except Exception as e:
-            print(f"Error in dispatcher: {e}")
+            logger.error(f"Error in dispatcher: {e}")
             time.sleep(1)  # Wait before retrying
 
 if __name__ == "__main__":
