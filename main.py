@@ -28,8 +28,7 @@ from task_processor import execute_task
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    format='%(message)s'
 )
 logger = logging.getLogger(__name__)
 
