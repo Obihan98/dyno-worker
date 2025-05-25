@@ -24,7 +24,10 @@ from queue import Queue, Empty
 from collections import defaultdict
 from datetime import datetime, timedelta
 from task_processor import execute_task
-from main import logger
+
+import logging
+logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__name__)
 
 # Parse Redis URL
 redis_url = os.getenv("REDIS_URL")
