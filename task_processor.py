@@ -40,7 +40,7 @@ def execute_task(task_data: Dict[str, Any]) -> bool:
         # TODO: Implement your specific task processing logic here
         # This is where you would add your business logic for processing the task
 
-        time.sleep(30)  # Simulating task processing
+        time.sleep(10)  # Simulating task processing
         
         return True
         
