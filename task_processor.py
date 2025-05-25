@@ -8,6 +8,14 @@ It handles the execution of tasks and provides error handling and logging.
 from typing import Dict, Any
 from datetime import datetime
 import time
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(message)s'
+)
+logger = logging.getLogger(__name__)
 
 def execute_task(task_data: Dict[str, Any]) -> bool:
     """
@@ -15,15 +23,6 @@ def execute_task(task_data: Dict[str, Any]) -> bool:
     
     Args:
         task_data (Dict[str, Any]): A dictionary containing the task data to process.
-            Expected format:
-            {
-                "task": {
-                    "discount_code": str,
-                    "discount_value": int,
-                    "discount_type": str
-                },
-                "store_name": str
-            }
     
     Returns:
         bool: True if the task was executed successfully, False otherwise.
@@ -43,14 +42,14 @@ def execute_task(task_data: Dict[str, Any]) -> bool:
         store_name = task_data["store_name"]
         
         # Log task execution
-        print(time.strftime("%Y-%m-%d %H:%M:%S"), f": Executing task for store {store_name}: {task}")
+        logger.info(f"Executing task for store {store_name}: {task}")
         
         # TODO: Implement your specific task processing logic here
         # This is where you would add your business logic for processing the task
         
-        print(time.strftime("%Y-%m-%d %H:%M:%S"), f": Successfully executed task for store {store_name}")
+        logger.info(f"Successfully executed task for store {store_name}")
         return True
         
     except Exception as e:
-        print(time.strftime("%Y-%m-%d %H:%M:%S"), f": Error executing task: {str(e)}")
+        logger.error(f"Error executing task: {str(e)}")
         return False 
