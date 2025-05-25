@@ -15,6 +15,7 @@ import redis
 import json
 import os
 import time
+import sys
 import threading
 from urllib.parse import urlparse
 from typing import Dict, List, Set
@@ -25,6 +26,7 @@ from datetime import datetime, timedelta
 from task_processor import execute_task
 
 import logging
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Parse Redis URL
