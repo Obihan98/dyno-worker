@@ -10,11 +10,6 @@ from datetime import datetime
 import time
 import logging
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(message)s'
-)
 logger = logging.getLogger(__name__)
 
 def execute_task(task_data: Dict[str, Any]) -> bool:
