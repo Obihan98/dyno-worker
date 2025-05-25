@@ -14,8 +14,9 @@ The system consists of:
 import logging
 from logging_config import setup_logging
 
-# Configure logging first, before any other imports
+# Set up logging
 setup_logging()
+logger = logging.getLogger(__name__)
 
 import redis
 import json
@@ -29,9 +30,6 @@ from queue import Queue, Empty
 from collections import defaultdict
 from datetime import datetime, timedelta
 from task_processor import execute_task
-
-# Get logger for this module
-logger = logging.getLogger(__name__)
 
 # Parse Redis URL
 redis_url = os.getenv("REDIS_URL")

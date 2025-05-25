@@ -11,9 +11,6 @@ import time
 import logging
 from logging_config import setup_logging
 
-# Ensure logging is configured
-setup_logging()
-
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
