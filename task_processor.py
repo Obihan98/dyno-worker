@@ -8,10 +8,8 @@ It handles the execution of tasks and provides error handling and logging.
 from typing import Dict, Any
 from datetime import datetime
 import time
-import logging
-from logging_config import setup_logging
 
-# Get logger for this module
+import logging
 logger = logging.getLogger(__name__)
 
 def execute_task(task_data: Dict[str, Any]) -> bool:

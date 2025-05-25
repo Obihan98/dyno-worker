@@ -11,13 +11,6 @@ The system consists of:
 - Retry mechanism for failed tasks
 """
 
-import logging
-from logging_config import setup_logging
-
-# Set up logging
-setup_logging()
-logger = logging.getLogger(__name__)
-
 import redis
 import json
 import os
@@ -30,6 +23,9 @@ from queue import Queue, Empty
 from collections import defaultdict
 from datetime import datetime, timedelta
 from task_processor import execute_task
+
+import logging
+logger = logging.getLogger(__name__)
 
 # Parse Redis URL
 redis_url = os.getenv("REDIS_URL")
