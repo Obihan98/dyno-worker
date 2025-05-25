@@ -36,14 +36,12 @@ def execute_task(task_data: Dict[str, Any]) -> bool:
         
         # Log task execution start
         print(f"Starting task execution for store {store_name}", flush=True)
-        print(f"Task details: {task}", flush=True)
         
         # TODO: Implement your specific task processing logic here
         # This is where you would add your business logic for processing the task
-        print(f"Processing task for store {store_name}...", flush=True)
+
         time.sleep(30)  # Simulating task processing
         
-        print(f"Successfully completed task for store {store_name}", flush=True)
         return True
         
     except Exception as e:

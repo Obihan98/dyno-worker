@@ -114,9 +114,7 @@ def store_worker(store_name: str):
     
     Args:
         store_name (str): The name of the store to process tasks for
-    """
-    print(f"Starting new thread for {store_name}", flush=True)
-    
+    """    
     while store_name in active_stores:
         try:
             # Get task from store's queue with timeout
@@ -152,9 +150,7 @@ def dispatcher():
             if task_data:
                 task = json.loads(task_data[1])
                 store_name = task.get("store_name", "default")
-                
-                print(f"Task received for {store_name}", flush=True)
-                
+                                
                 # Add task to store's queue
                 store_queues[store_name].put(task)
                 
