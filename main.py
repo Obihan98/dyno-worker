@@ -26,17 +26,19 @@ from task_processor import execute_task
 
 # Parse Redis URL
 redis_url = os.getenv("REDIS_URL")
-parsed_url = urlparse(redis_url)
+if not redis_url:
+    raise ValueError("REDIS_URL environment variable is not set")
 
 # Set up Redis connection
-r = redis.Redis(
-    host=parsed_url.hostname,
-    port=parsed_url.port,
-    username=parsed_url.username,
-    password=parsed_url.password,
-    ssl=True,
-    decode_responses=True
-)
+try:
+    # For Render internal Redis, we can connect directly using the URL
+    r = redis.from_url(redis_url, decode_responses=True)
+    # Test the connection
+    r.ping()
+    print("Successfully connected to Redis")
+except redis.ConnectionError as e:
+    print(f"Failed to connect to Redis: {e}")
+    raise
 
 # Global state for store management
 store_locks = defaultdict(threading.Lock)
