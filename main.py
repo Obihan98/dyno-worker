@@ -24,7 +24,6 @@ from queue import Queue, Empty
 from collections import defaultdict
 from datetime import datetime, timedelta
 from task_processor import execute_task
-from logger_config import logger
 
 # Parse Redis URL
 redis_url = os.getenv("REDIS_URL")
@@ -37,9 +36,9 @@ try:
     r = redis.from_url(redis_url, decode_responses=True)
     # Test the connection
     r.ping()
-    logger.info("Successfully connected to Redis")
+    print("Successfully connected to Redis", flush=True)
 except redis.ConnectionError as e:
-    logger.error(f"Failed to connect to Redis: {e}")
+    print(f"Failed to connect to Redis: {e}", flush=True)
     raise
 
 # Global state for store management
@@ -68,7 +67,7 @@ def process_store_task(store_name: str, task: dict) -> bool:
     retries = 0
     while retries < MAX_RETRIES:
         try:
-            logger.info(f"Processing task for {store_name}")
+            print(f"Processing task for {store_name}", flush=True)
             
             # Execute the task using the task processor
             success = execute_task(task)
@@ -81,13 +80,13 @@ def process_store_task(store_name: str, task: dict) -> bool:
                 
         except Exception as e:
             retries += 1
-            logger.error(f"Error processing task for store {store_name} (attempt {retries}/{MAX_RETRIES}): {e}")
-            logger.error(f"Task that caused error: {task}")
+            print(f"Error processing task for store {store_name} (attempt {retries}/{MAX_RETRIES}): {e}", flush=True)
+            print(f"Task that caused error: {task}", flush=True)
             
             if retries < MAX_RETRIES:
                 time.sleep(RETRY_DELAY)
             else:
-                logger.error(f"Failed to process task for store {store_name} after {MAX_RETRIES} attempts")
+                print(f"Failed to process task for store {store_name} after {MAX_RETRIES} attempts", flush=True)
                 return False
 
 def cleanup_inactive_stores():
@@ -107,7 +106,7 @@ def cleanup_inactive_stores():
                 if store_name in active_stores:
                     active_stores.remove(store_name)
                     del store_last_activity[store_name]
-                    logger.info(f"Cleaned up inactive store: {store_name}")
+                    print(f"Cleaned up inactive store: {store_name}", flush=True)
 
 def store_worker(store_name: str):
     """
@@ -116,7 +115,7 @@ def store_worker(store_name: str):
     Args:
         store_name (str): The name of the store to process tasks for
     """
-    logger.info(f"Starting new thread for {store_name}")
+    print(f"Starting new thread for {store_name}", flush=True)
     
     while store_name in active_stores:
         try:
@@ -134,17 +133,17 @@ def store_worker(store_name: str):
             
             if not success:
                 # If task failed after all retries, log it for manual review
-                logger.error(f"Task failed for store {store_name}: {task}")
+                print(f"Task failed for store {store_name}: {task}", flush=True)
                 
         except Exception as e:
-            logger.error(f"Error in store worker {store_name}: {e}")
+            print(f"Error in store worker {store_name}: {e}", flush=True)
             time.sleep(1)  # Wait before retrying
 
 def dispatcher():
     """
     Central dispatcher that routes tasks to appropriate store workers.
     """
-    logger.info("Starting dispatcher...")
+    print("Starting dispatcher...", flush=True)
     
     while True:
         try:
@@ -154,7 +153,7 @@ def dispatcher():
                 task = json.loads(task_data[1])
                 store_name = task.get("store_name", "default")
                 
-                logger.info(f"Task received for {store_name}")
+                print(f"Task received for {store_name}", flush=True)
                 
                 # Add task to store's queue
                 store_queues[store_name].put(task)
@@ -175,7 +174,7 @@ def dispatcher():
             cleanup_inactive_stores()
                 
         except Exception as e:
-            logger.error(f"Error in dispatcher: {e}")
+            print(f"Error in dispatcher: {e}", flush=True)
             time.sleep(1)  # Wait before retrying
 
 if __name__ == "__main__":

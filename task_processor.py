@@ -8,7 +8,6 @@ It handles the execution of tasks and provides error handling and logging.
 from typing import Dict, Any
 from datetime import datetime
 import time
-from logger_config import logger
 
 
 def execute_task(task_data: Dict[str, Any]) -> bool:
@@ -35,16 +34,18 @@ def execute_task(task_data: Dict[str, Any]) -> bool:
         task = task_data["task"]
         store_name = task_data["store_name"]
         
-        # Log task execution
-        logger.info(f"Executing task for store {store_name}: {task}")
+        # Log task execution start
+        print(f"Starting task execution for store {store_name}", flush=True)
+        print(f"Task details: {task}", flush=True)
         
         # TODO: Implement your specific task processing logic here
         # This is where you would add your business logic for processing the task
-        time.sleep(30)
+        print(f"Processing task for store {store_name}...", flush=True)
+        time.sleep(30)  # Simulating task processing
         
-        logger.info(f"Successfully executed task for store {store_name}")
+        print(f"Successfully completed task for store {store_name}", flush=True)
         return True
         
     except Exception as e:
-        logger.error(f"Error executing task: {str(e)}")
+        print(f"Error executing task for store {task_data.get('store_name', 'unknown')}: {str(e)}", flush=True)
         return False 
