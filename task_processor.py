@@ -8,6 +8,7 @@ It handles the execution of tasks and provides error handling and logging.
 from typing import Dict, Any
 from datetime import datetime
 import time
+import json
 
 
 def execute_task(task_data: Dict[str, Any]) -> bool:
@@ -28,14 +29,8 @@ def execute_task(task_data: Dict[str, Any]) -> bool:
         if not isinstance(task_data, dict):
             raise ValueError("Task data must be a dictionary")
         
-        if "task" not in task_data or "store_name" not in task_data:
-            raise ValueError("Task data must contain 'task' and 'store_name' fields")
-        
-        task = task_data["task"]
-        store_name = task_data["store_name"]
-        
-        # Log task execution start
-        print(f"Starting task execution for store {store_name}", flush=True)
+        print(json.dumps(task_data, indent=2))
+
         
         # TODO: Implement your specific task processing logic here
         # This is where you would add your business logic for processing the task
