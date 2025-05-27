@@ -147,7 +147,7 @@ def dispatcher():
             print(json.dumps(task_data, indent=2), flush=True)
             if task_data:
                 task = json.loads(task_data[1])
-                store_name = task.get("store_name", "default")
+                store_name = task["discountDB"]["shop"]
                 
                 # Add task to store's queue
                 store_queues[store_name].put(task)
