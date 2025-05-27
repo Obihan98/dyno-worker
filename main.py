@@ -15,9 +15,7 @@ import redis
 import json
 import os
 import time
-import sys
 import threading
-from urllib.parse import urlparse
 from typing import Dict, List, Set
 from threading import Lock
 from queue import Queue, Empty
@@ -146,6 +144,7 @@ def dispatcher():
         try:
             # Blocking pop from the central queue with a timeout of 1 second
             task_data = r.blpop("queue:tasks", timeout=1)
+            print(json.dumps(task_data, indent=2))
             if task_data:
                 task = json.loads(task_data[1])
                 store_name = task.get("store_name", "default")
