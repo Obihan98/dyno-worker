@@ -144,7 +144,7 @@ def dispatcher():
         try:
             # Blocking pop from the central queue with a timeout of 1 second
             task_data = r.blpop("queue:tasks", timeout=1)
-            print(json.dumps(task_data, indent=2))
+            print(json.dumps(task_data, indent=2), flush=True)
             if task_data:
                 task = json.loads(task_data[1])
                 store_name = task.get("store_name", "default")

@@ -29,7 +29,7 @@ def execute_task(task_data: Dict[str, Any]) -> bool:
         if not isinstance(task_data, dict):
             raise ValueError("Task data must be a dictionary")
         
-        print(json.dumps(task_data, indent=2))
+        print(json.dumps(task_data, indent=2), flush=True)
 
         
         # TODO: Implement your specific task processing logic here
