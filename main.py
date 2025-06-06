@@ -17,6 +17,7 @@ import os
 import time
 import threading
 import asyncio
+import logging
 from typing import Dict, List, Set
 from threading import Lock
 from queue import Queue, Empty
@@ -24,6 +25,13 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from processor.task_processor import execute_task
 from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -50,11 +58,11 @@ class RedisConnectionManager:
             try:
                 self.redis = redis.from_url(self.redis_url, decode_responses=True)
                 self.redis.ping()  # Test the connection
-                if IS_DEV: print("Successfully connected to Redis", flush=True)
+                logger.info("Successfully connected to Redis")
                 return
             except redis.ConnectionError as e:
                 retries += 1
-                if IS_DEV: print(f"Failed to connect to Redis (attempt {retries}/{self.max_retries}): {e}", flush=True)
+                logger.error(f"Failed to connect to Redis (attempt {retries}/{self.max_retries}): {e}")
                 if retries < self.max_retries:
                     time.sleep(self.retry_delay)
                 else:
@@ -66,7 +74,7 @@ class RedisConnectionManager:
             self.redis.ping()
             return self.redis
         except (redis.ConnectionError, redis.ResponseError):
-            if IS_DEV: print("Redis connection lost, attempting to reconnect...", flush=True)
+            logger.warning("Redis connection lost, attempting to reconnect...")
             self.connect()
             return self.redis
 
@@ -126,6 +134,7 @@ def process_store_task(store_name: str, task: dict) -> bool:
                     success = loop.run_until_complete(execute_task(task))
                     
                     if success:
+                        logger.info(f"Successfully processed task for store {store_name}")
                         return True
                     else:
                         raise Exception("Task execution failed")
@@ -140,8 +149,8 @@ def process_store_task(store_name: str, task: dict) -> bool:
                     
             except Exception as e:
                 retries += 1
-                if IS_DEV: print(f"Error processing task for store {store_name} (attempt {retries}/{MAX_RETRIES}): {e}", flush=True)
-                if IS_DEV: print(f"Task that caused error: {task}", flush=True)
+                logger.error(f"Error processing task for store {store_name} (attempt {retries}/{MAX_RETRIES}): {e}")
+                logger.debug(f"Task that caused error: {task}")
                 
                 if retries < MAX_RETRIES:
                     time.sleep(RETRY_DELAY)
@@ -174,7 +183,7 @@ def cleanup_inactive_stores():
                     active_stores.remove(store_name)
                     del store_last_activity[store_name]
                     del store_processing[store_name]
-                    if IS_DEV: print(f"Cleaned up inactive store: {store_name}", flush=True)
+                    logger.info(f"Cleaned up inactive store: {store_name}")
 
 def store_worker(store_name: str):
     """
@@ -183,7 +192,7 @@ def store_worker(store_name: str):
     Args:
         store_name (str): The name of the store to process tasks for
     """
-    print(f"Starting new thread for {store_name}", flush=True)
+    logger.info(f"Starting new thread for {store_name}")
     
     while store_name in active_stores:
         try:            # Get task from store's queue with timeout
@@ -199,14 +208,14 @@ def store_worker(store_name: str):
             store_queues[store_name].task_done()
                 
         except Exception as e:
-            if IS_DEV: print(f"Error in store worker {store_name}: {e}", flush=True)
+            logger.error(f"Error in store worker {store_name}: {e}")
             time.sleep(1)  # Wait before retrying
 
 def dispatcher():
     """
     Central dispatcher that routes tasks to appropriate store workers.
     """
-    if IS_DEV: print("Starting dispatcher...", flush=True)
+    logger.info("Starting dispatcher...")
     
     while True:
         try:
@@ -219,7 +228,7 @@ def dispatcher():
                 task = json.loads(task_data[1])
                 store_name = task["discountDB"]["shop"]
 
-                if IS_DEV: print(f"Received task for store: {store_name}", flush=True)
+                logger.info(f"Received task for store: {store_name}")
                 
                 # Add task to store's queue
                 store_queues[store_name].put(task)
@@ -240,15 +249,15 @@ def dispatcher():
             cleanup_inactive_stores()
                 
         except redis.ConnectionError as e:
-            if IS_DEV: print(f"Redis connection error in dispatcher: {e}", flush=True)
+            logger.error(f"Redis connection error in dispatcher: {e}")
             # Force a reconnection attempt
             redis_manager.connect()
             time.sleep(1)  # Wait before retrying
         except redis.ResponseError as e:
-            if IS_DEV: print(f"Redis response error in dispatcher: {e}", flush=True)
+            logger.error(f"Redis response error in dispatcher: {e}")
             time.sleep(1)  # Wait before retrying
         except Exception as e:
-            if IS_DEV: print(f"Unexpected error in dispatcher: {e}", flush=True)
+            logger.error(f"Unexpected error in dispatcher: {e}")
             time.sleep(1)  # Wait before retrying
 
 if __name__ == "__main__":
