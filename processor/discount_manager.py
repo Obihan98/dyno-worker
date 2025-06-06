@@ -214,10 +214,11 @@ def update_job_details(shop, job_id, status=None, response=None, failed_codes=No
         WHERE shop = %s AND job_id = %s
     """
     
-    params.extend([shop, int(job_id)])
+    # Convert params to tuple and add shop and job_id
+    params = tuple(params + [shop, int(job_id)])
     
     logger.info(f"Updating job details for shop {shop}, job {job_id} with data {update_parts} and params {params}")
-    execute_query(update_query, tuple(params))
+    execute_query(update_query, params)
 
 async def retry_failed_codes(
     shop: str,
