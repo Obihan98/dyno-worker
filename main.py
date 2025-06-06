@@ -41,7 +41,7 @@ class EasternTimeFormatter(logging.Formatter):
         return dt.strftime('%Y-%m-%d %H:%M:%S %Z')
 
 # Configure root logger
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)  # Change to DEBUG level
 logger = logging.getLogger(__name__)
 
 # Set the formatter for all handlers
@@ -58,6 +58,11 @@ IS_DEV = os.getenv("IS_DEV") == "True"
 
 if not REDIS_URL:
     raise ValueError("REDIS_URL environment variable is not set")
+
+# Add file handler for persistent logging
+file_handler = logging.FileHandler('app.log')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 class RedisConnectionManager:
     def __init__(self, redis_url: str, max_retries: int = 3, retry_delay: int = 5):
@@ -123,6 +128,12 @@ def process_store_task(store_name: str, task: dict) -> bool:
     Returns:
         bool: True if the task was processed successfully, False otherwise
     """
+    logger.info(f"Starting to process task for store {store_name}")
+    try:
+        logger.debug(f"Task data: {json.dumps(task, indent=2)}")
+    except Exception as e:
+        logger.error(f"Error logging task data: {e}")
+    
     # Mark store as processing
     with store_processing_lock:
         store_processing[store_name] = True
@@ -132,6 +143,7 @@ def process_store_task(store_name: str, task: dict) -> bool:
         retries = 0
         while retries < MAX_RETRIES:
             try:
+                logger.info(f"Creating new event loop for store {store_name}")
                 # Create a new event loop for this thread
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
@@ -146,6 +158,7 @@ def process_store_task(store_name: str, task: dict) -> bool:
                 activity_updater = loop.create_task(update_activity())
                 
                 try:
+                    logger.info(f"Executing task for store {store_name}")
                     # Execute the task using the task processor
                     success = loop.run_until_complete(execute_task(task))
                     
@@ -153,7 +166,11 @@ def process_store_task(store_name: str, task: dict) -> bool:
                         logger.info(f"Successfully processed task for store {store_name}")
                         return True
                     else:
+                        logger.error(f"Task execution failed for store {store_name}")
                         raise Exception("Task execution failed")
+                except Exception as e:
+                    logger.error(f"Error in task execution: {str(e)}")
+                    raise
                 finally:
                     # Cancel the activity updater and wait for it to complete
                     activity_updater.cancel()
@@ -166,16 +183,22 @@ def process_store_task(store_name: str, task: dict) -> bool:
             except Exception as e:
                 retries += 1
                 logger.error(f"Error processing task for store {store_name} (attempt {retries}/{MAX_RETRIES}): {e}")
-                logger.debug(f"Task that caused error: {task}")
+                try:
+                    logger.error(f"Task that caused error: {json.dumps(task, indent=2)}")
+                except Exception as json_error:
+                    logger.error(f"Error logging task data: {json_error}")
                 
                 if retries < MAX_RETRIES:
+                    logger.info(f"Retrying task for store {store_name} in {RETRY_DELAY} seconds...")
                     time.sleep(RETRY_DELAY)
                 else:
+                    logger.error(f"Max retries reached for store {store_name}. Task failed.")
                     return False
     finally:
         # Mark store as not processing
         with store_processing_lock:
             store_processing[store_name] = False
+            logger.info(f"Finished processing task for store {store_name}")
 
 def cleanup_inactive_stores():
     """
@@ -241,25 +264,36 @@ def dispatcher():
             # Blocking pop from the central queue with a timeout of 1 second
             task_data = r.blpop("queue:tasks", timeout=1)
             if task_data:
-                task = json.loads(task_data[1])
-                store_name = task["discountDB"]["shop"]
+                try:
+                    task = json.loads(task_data[1])
+                    store_name = task.get("discountDB", {}).get("shop")
+                    
+                    if not store_name:
+                        logger.error(f"Invalid task data - missing shop name: {task_data[1]}")
+                        continue
 
-                logger.info(f"Received task for store: {store_name}")
-                
-                # Add task to store's queue
-                store_queues[store_name].put(task)
-                
-                # Start a new worker if this store doesn't have one
-                with active_stores_lock:
-                    if store_name not in active_stores:
-                        thread = threading.Thread(
-                            target=store_worker,
-                            args=(store_name,),
-                            daemon=True
-                        )
-                        thread.start()
-                        active_stores.add(store_name)
-                        store_last_activity[store_name] = datetime.now()
+                    logger.info(f"Received task for store: {store_name}")
+                    logger.debug(f"Task data: {json.dumps(task, indent=2)}")
+                    
+                    # Add task to store's queue
+                    store_queues[store_name].put(task)
+                    
+                    # Start a new worker if this store doesn't have one
+                    with active_stores_lock:
+                        if store_name not in active_stores:
+                            thread = threading.Thread(
+                                target=store_worker,
+                                args=(store_name,),
+                                daemon=True
+                            )
+                            thread.start()
+                            active_stores.add(store_name)
+                            store_last_activity[store_name] = datetime.now()
+                except json.JSONDecodeError as e:
+                    logger.error(f"Error decoding task data: {e}")
+                    logger.error(f"Raw task data: {task_data[1]}")
+                except Exception as e:
+                    logger.error(f"Error processing task data: {e}")
             
             # Periodically clean up inactive stores
             cleanup_inactive_stores()
@@ -274,6 +308,7 @@ def dispatcher():
             time.sleep(1)  # Wait before retrying
         except Exception as e:
             logger.error(f"Unexpected error in dispatcher: {e}")
+            logger.exception("Full traceback:")  # This will log the full stack trace
             time.sleep(1)  # Wait before retrying
 
 if __name__ == "__main__":
