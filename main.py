@@ -115,7 +115,6 @@ store_processing = defaultdict(bool)  # Track if store is currently processing a
 store_processing_lock = Lock()
 
 # Configuration constants
-STORE_INACTIVITY_TIMEOUT = 3600  # 1 hour
 MAX_RETRIES = 1
 RETRY_DELAY = 5  # seconds
 ACTIVITY_UPDATE_INTERVAL = 300  # Update activity every 5 minutes during long tasks
@@ -199,33 +198,10 @@ def process_store_task(store_name: str, task: dict) -> bool:
             store_processing[store_name] = False
             logger.info(f"Finished processing task for store {store_name}")
 
-def cleanup_inactive_stores():
-    """
-    Clean up stores that have been inactive for too long.
-    Only cleans up stores that are not currently processing tasks.
-    """
-    current_time = datetime.now()
-    stores_to_remove = set()
-    
-    with store_processing_lock:
-        for store_name, last_activity in store_last_activity.items():
-            # Only clean up if store is not processing and has been inactive
-            if (not store_processing[store_name] and 
-                (current_time - last_activity) > timedelta(seconds=STORE_INACTIVITY_TIMEOUT)):
-                stores_to_remove.add(store_name)
-    
-    if stores_to_remove:
-        with active_stores_lock:
-            for store_name in stores_to_remove:
-                if store_name in active_stores:
-                    active_stores.remove(store_name)
-                    del store_last_activity[store_name]
-                    del store_processing[store_name]
-                    logger.info(f"Cleaned up inactive store: {store_name}")
-
 def store_worker(store_name: str):
     """
     Worker thread that processes tasks for a specific store.
+    Cleans up the store when its queue is empty.
     
     Args:
         store_name (str): The name of the store to process tasks for
@@ -240,7 +216,15 @@ def store_worker(store_name: str):
                 task = store_queues[store_name].get(timeout=1)
                 logger.info(f"Retrieved task from queue for store {store_name}")
             except Empty:
-                continue
+                # If queue is empty, clean up the store and exit
+                logger.info(f"Queue empty for store {store_name}, cleaning up...")
+                with active_stores_lock:
+                    if store_name in active_stores:
+                        active_stores.remove(store_name)
+                        del store_last_activity[store_name]
+                        del store_processing[store_name]
+                        logger.info(f"Cleaned up store: {store_name}")
+                return
             except Exception as queue_error:
                 logger.error(f"Error retrieving task from queue for store {store_name}: {queue_error}")
                 continue
@@ -313,9 +297,6 @@ def dispatcher():
                     logger.error(f"Raw task data: {task_data[1]}")
                 except Exception as e:
                     logger.error(f"Error processing task data: {e}")
-            
-            # Periodically clean up inactive stores
-            cleanup_inactive_stores()
                 
         except redis.ConnectionError as e:
             logger.error(f"Redis connection error in dispatcher: {e}")
