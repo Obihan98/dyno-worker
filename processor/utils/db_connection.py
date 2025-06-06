@@ -96,12 +96,30 @@ def execute_query(query, params=None):
     Returns:
         list: Query results
     """
-    with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(query, params)
-            if cursor.description:  # If the query returns results
-                return cursor.fetchall()
-            return None
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                try:
+                    logger.info(f"Executing query: {query}")
+                    if params:
+                        logger.info(f"Query parameters: {params}")
+                    
+                    cursor.execute(query, params)
+                    
+                    if cursor.description:  # If the query returns results
+                        results = cursor.fetchall()
+                        logger.info(f"Query returned {len(results)} results")
+                        return results
+                    
+                    logger.info("Query executed successfully")
+                    return None
+                except psycopg2.Error as e:
+                    logger.error(f"Database error executing query: {str(e)}")
+                    logger.error(f"Error code: {e.pgcode}, Error message: {e.pgerror}")
+                    raise
+    except Exception as e:
+        logger.error(f"Unexpected error in execute_query: {str(e)}")
+        raise
 
 def release_connection(conn):
     """
