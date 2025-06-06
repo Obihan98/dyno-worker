@@ -129,10 +129,6 @@ def process_store_task(store_name: str, task: dict) -> bool:
         bool: True if the task was processed successfully, False otherwise
     """
     logger.info(f"Starting to process task for store {store_name}")
-    try:
-        logger.debug(f"Task data: {json.dumps(task, indent=2)}")
-    except Exception as e:
-        logger.error(f"Error logging task data: {e}")
     
     # Mark store as processing
     with store_processing_lock:
@@ -273,7 +269,6 @@ def dispatcher():
                         continue
 
                     logger.info(f"Received task for store: {store_name}")
-                    logger.debug(f"Task data: {json.dumps(task, indent=2)}")
                     
                     # Add task to store's queue
                     store_queues[store_name].put(task)
