@@ -30,9 +30,7 @@ load_dotenv()
 
 # Parse Redis URL
 REDIS_URL = os.getenv("REDIS_URL")
-IS_DEV = os.getenv("IS_DEV")
-
-print(IS_DEV, type(IS_DEV))
+IS_DEV = os.getenv("IS_DEV") == "True"
 
 if not REDIS_URL:
     raise ValueError("REDIS_URL environment variable is not set")
