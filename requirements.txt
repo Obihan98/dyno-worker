@@ -4,3 +4,4 @@ aiohttp>=3.8.4
 psycopg2-binary>=2.9.6
 psycopg2-pool>=1.2
 boto3>=1.34.0
+pytz>=2024.1
