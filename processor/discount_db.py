@@ -89,5 +89,5 @@ def get_job_details(shop, job_id):
     }
     
     logger.info(f"Fetching job details for shop {shop}, job {job_id}")
-    result = execute_query(query, params, fetch_one=True)
+    result = execute_query(query, params)
     return result
