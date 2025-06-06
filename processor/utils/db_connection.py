@@ -5,6 +5,7 @@ import os
 import logging
 from typing import List, Dict, Any, Optional
 from contextlib import contextmanager
+import time
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -25,15 +26,41 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 logger.info(f"Database connection details - Host: {DB_HOST}, Port: {DB_PORT}, Database: {DB_NAME}, User: {DB_USER}")
 
 # Create a connection pool
-connection_pool = pool.SimpleConnectionPool(
-    1,  # minconn
-    10,  # maxconn
-    host=DB_HOST,
-    port=DB_PORT,
-    database=DB_NAME,
-    user=DB_USER,
-    password=DB_PASSWORD
-)
+def create_connection_pool(max_retries: Optional[int] = None) -> pool.SimpleConnectionPool:
+    """
+    Create a database connection pool with retry mechanism.
+    
+    Args:
+        max_retries (int, optional): Maximum number of retry attempts. If None, will retry indefinitely.
+    
+    Returns:
+        pool.SimpleConnectionPool: The created connection pool
+    """
+    retry_count = 0
+    while True:
+        try:
+            pool = pool.SimpleConnectionPool(
+                1,  # minconn
+                10,  # maxconn
+                host=DB_HOST,
+                port=DB_PORT,
+                database=DB_NAME,
+                user=DB_USER,
+                password=DB_PASSWORD
+            )
+            logger.info("Successfully created database connection pool")
+            return pool
+        except psycopg2.Error as e:
+            retry_count += 1
+            if max_retries is not None and retry_count >= max_retries:
+                logger.error(f"Failed to create database connection pool after {max_retries} attempts: {str(e)}")
+                raise
+            
+            logger.warning(f"Failed to create database connection pool (attempt {retry_count}): {str(e)}")
+            logger.info("Retrying in 10 seconds...")
+            time.sleep(10)
+
+connection_pool = create_connection_pool()
 
 @contextmanager
 def get_db_connection():
