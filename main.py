@@ -215,6 +215,18 @@ def store_worker(store_name: str):
                 logger.info(f"Waiting for task in queue for store {store_name}")
                 task = store_queues[store_name].get(timeout=1)
                 logger.info(f"Retrieved task from queue for store {store_name}")
+                logger.info(f"Task data structure: {json.dumps(task, indent=2)}")
+                
+                # Validate required fields
+                if not task.get('discountDB'):
+                    logger.error(f"Missing discountDB field in task data for store {store_name}")
+                    continue
+                if not task.get('shopDataDB'):
+                    logger.error(f"Missing shopDataDB field in task data for store {store_name}")
+                    continue
+                if not task.get('discountCreated'):
+                    logger.error(f"Missing discountCreated field in task data for store {store_name}")
+                    continue
             except Empty:
                 # If queue is empty, clean up the store and exit
                 logger.info(f"Queue empty for store {store_name}, cleaning up...")
