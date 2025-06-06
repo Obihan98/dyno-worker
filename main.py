@@ -226,7 +226,7 @@ def store_worker(store_name: str):
             # Get the first task from the queue
             task = store_queues[store_name][0]
             logger.info(f"Retrieved task from queue for store {store_name}")
-            logger.info(f"Task data structure: {json.dumps(task, indent=2)}")
+            # logger.info(f"Task data structure: {json.dumps(task, indent=2)}")
             
             # Validate required fields
             if not task.get('discountDB'):
