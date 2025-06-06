@@ -51,6 +51,7 @@ for handler in logging.getLogger().handlers:
 
 # Load environment variables from .env file
 load_dotenv()
+logger.info("Environment variables loaded from .env file")
 
 # Parse Redis URL
 REDIS_URL = os.getenv("REDIS_URL")
@@ -58,6 +59,8 @@ IS_DEV = os.getenv("IS_DEV") == "True"
 
 if not REDIS_URL:
     raise ValueError("REDIS_URL environment variable is not set")
+
+logger.info(f"Redis URL configured: {REDIS_URL}")
 
 # Add file handler for persistent logging
 file_handler = logging.FileHandler('app.log')
