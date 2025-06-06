@@ -9,7 +9,11 @@ import json
 import os
 import csv
 import re
+import logging
 from typing import List, Dict, Tuple, Any
+
+# Get logger for this module
+logger = logging.getLogger(__name__)
 
 IS_DEV = os.getenv("IS_DEV")
 MAX_RETRY_ATTEMPTS = 3
@@ -212,7 +216,7 @@ def update_job_details(shop, job_id, status=None, response=None, failed_codes=No
     
     params.extend([shop, int(job_id)])
     
-    if IS_DEV: print(f"Updating job details for shop {shop}, job {job_id}", flush=True)
+    logger.info(f"Updating job details for shop {shop}, job {job_id}")
     execute_query(update_query, tuple(params))
 
 async def retry_failed_codes(
@@ -229,7 +233,7 @@ async def retry_failed_codes(
     
     while remaining_unsuccessful and retry_count < MAX_RETRY_ATTEMPTS:
         retry_count += 1
-        if IS_DEV: print(f"Retry attempt {retry_count}/{MAX_RETRY_ATTEMPTS} for {len(remaining_unsuccessful)} unsuccessful codes...", flush=True)
+        logger.info(f"Retry attempt {retry_count}/{MAX_RETRY_ATTEMPTS} for {len(remaining_unsuccessful)} unsuccessful codes...")
         
         retry_codes = generate_codes(discount_created, len(remaining_unsuccessful))
         _, retry_successful, retry_unsuccessful = await process_discount_codes(
@@ -237,19 +241,19 @@ async def retry_failed_codes(
         )
         
         if retry_successful:
-            if IS_DEV: print(f"Successfully retried {len(retry_successful)} codes in attempt {retry_count}", flush=True)
+            logger.info(f"Successfully retried {len(retry_successful)} codes in attempt {retry_count}")
             all_successful.extend(retry_successful)
         
         remaining_unsuccessful = retry_unsuccessful
         
         if remaining_unsuccessful:
-            if IS_DEV: print(f"Still have {len(remaining_unsuccessful)} unsuccessful codes after attempt {retry_count}", flush=True)
+            logger.info(f"Still have {len(remaining_unsuccessful)} unsuccessful codes after attempt {retry_count}")
         else:
-            if IS_DEV: print("All codes successfully generated!", flush=True)
+            logger.info("All codes successfully generated!")
             break
     
     if remaining_unsuccessful:
-        if IS_DEV: print(f"Failed to generate {len(remaining_unsuccessful)} codes after {MAX_RETRY_ATTEMPTS} attempts", flush=True)
+        logger.warning(f"Failed to generate {len(remaining_unsuccessful)} codes after {MAX_RETRY_ATTEMPTS} attempts")
     
     return all_successful, remaining_unsuccessful
 
@@ -281,9 +285,9 @@ def delete_temp_file(file_path: str) -> None:
     try:
         if os.path.exists(file_path):
             os.remove(file_path)
-            if IS_DEV: print(f"Successfully deleted temporary file: {file_path}", flush=True)
+            logger.info(f"Successfully deleted temporary file: {file_path}")
     except Exception as e:
-        if IS_DEV: print(f"Error deleting temporary file {file_path}: {str(e)}", flush=True)
+        logger.error(f"Error deleting temporary file {file_path}: {str(e)}")
 
 def download_and_read_csv(s3_object_name: str) -> List[str]:
     """
@@ -416,7 +420,7 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
         codes = generate_codes(task_name, discount_created)
         total_codes = sum(len(chunk) for chunk in codes) + 1 if task_name == "initialCodeGeneration" else sum(len(chunk) for chunk in codes)
 
-        if IS_DEV: print(f"Creating {total_codes} discount codes for {shop}", flush=True)
+        logger.info(f"Creating {total_codes} discount codes for {shop}")
         time.sleep(2)
         update_job_details(shop, job_id, status="generating_codes")
 
@@ -430,7 +434,6 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
             all_unsuccessful_codes.extend(unsuccessful_codes)
 
             update_job_details(shop, job_id, current_batch=batch_num)
-
 
         if all_unsuccessful_codes and discount_created['style'] == 'random':
             retry_successful, remaining_unsuccessful = await retry_failed_codes(
@@ -456,7 +459,7 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
         return True
     
     except CheckBulkCreationStatusError as e:
-        if IS_DEV: print(f"Error processing discount codes for shop {shop}, job {job_id}: {str(e)}", flush=True)
+        logger.error(f"Error processing discount codes for shop {shop}, job {job_id}: {str(e)}")
         update_job_details(
             shop,
             job_id,
@@ -467,7 +470,7 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
         )
         return False
     except UploadCodesError as e:
-        if IS_DEV: print(f"Error processing discount codes for shop {shop}, job {job_id}: {str(e)}", flush=True)
+        logger.error(f"Error processing discount codes for shop {shop}, job {job_id}: {str(e)}")
         update_job_details(
             shop,
             job_id,
@@ -478,7 +481,7 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
         )
         return False
     except Exception as e:
-        if IS_DEV: print(f"Error processing discount codes for shop {shop}, job {job_id}: {str(e)}", flush=True)
+        logger.error(f"Error processing discount codes for shop {shop}, job {job_id}: {str(e)}")
         update_job_details(
             shop,
             job_id,

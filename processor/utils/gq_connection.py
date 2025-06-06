@@ -2,9 +2,10 @@ import aiohttp
 import logging
 from typing import Dict, Any
 
+# Get logger for this module
 logger = logging.getLogger(__name__)
 
-async def execute_graphql(shop: str, access_token: str, query: Dict[str, Any]) -> Dict[str, Any]:
+async def execute_graphql(shop, access_token, query):
     """
     Execute a GraphQL query against the Shopify Admin API.
     

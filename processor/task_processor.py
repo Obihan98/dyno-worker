@@ -13,6 +13,7 @@ from typing import Dict, List, Tuple, Any
 
 from processor.discount_manager import process_discount_codes
 
+# Get logger for this module
 logger = logging.getLogger(__name__)
 
 IS_DEV = os.getenv("IS_DEV")

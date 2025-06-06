@@ -5,6 +5,7 @@ from botocore.exceptions import ClientError
 from urllib.parse import urlparse
 import logging
 
+# Get logger for this module
 logger = logging.getLogger(__name__)
 
 # Load environment variables
@@ -59,33 +60,39 @@ def generate_url(object_name):
         logger.error(f"Unexpected error generating URL: {e}")
         return None
 
-def upload_file(file_path: str, object_name: str) -> bool:
+def upload_file(file_path, object_name):
     """
-    Upload a file to S3
+    Upload a file to S3 and return the object name and URL
     
     Args:
         file_path (str): Path to the file to upload
         object_name (str): Name to give the file in S3
         
     Returns:
-        bool: True if upload was successful, False otherwise
+        tuple: (object_name, url)
+            - object_name: The name of the object in S3
+            - url: Presigned URL valid for 1 day
     """
     try:
+        # Upload file with content disposition for download
         s3.upload_file(
-            file_path,
-            s3_bucketName,
-            object_name
+            file_path, 
+            s3_bucketName, 
+            object_name,
+            ExtraArgs={
+                'ContentDisposition': 'attachment'
+            }
         )
-        logger.info(f"Successfully uploaded {file_path} to S3 as {object_name}")
-        return True
+            
+        return object_name
     except ClientError as e:
         logger.error(f"Error uploading file to S3: {e}")
-        return False
+        return None, None
     except Exception as e:
         logger.error(f"Unexpected error in upload_file: {e}")
-        return False
+        return None, None
 
-def download_file(object_name: str, local_path: str) -> bool:
+def download_file(object_name, local_path):
     """
     Download a file from S3 to a local path
     
@@ -102,7 +109,6 @@ def download_file(object_name: str, local_path: str) -> bool:
             object_name,
             local_path
         )
-        logger.info(f"Successfully downloaded {object_name} from S3 to {local_path}")
         return True
     except ClientError as e:
         logger.error(f"Error downloading file from S3: {e}")

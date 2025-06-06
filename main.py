@@ -23,30 +23,31 @@ from threading import Lock
 from queue import Queue, Empty
 from collections import defaultdict
 from datetime import datetime, timedelta
-import pytz
 from processor.task_processor import execute_task
 from dotenv import load_dotenv
+import pytz
 
 # Configure logging with US Eastern Time
-eastern = pytz.timezone('US/Eastern')
 class EasternTimeFormatter(logging.Formatter):
+    def converter(self, timestamp):
+        dt = datetime.fromtimestamp(timestamp)
+        eastern = pytz.timezone('US/Eastern')
+        return dt.astimezone(eastern)
+    
     def formatTime(self, record, datefmt=None):
-        dt = datetime.fromtimestamp(record.created)
-        eastern_dt = dt.astimezone(eastern)
+        dt = self.converter(record.created)
         if datefmt:
-            return eastern_dt.strftime(datefmt)
-        return eastern_dt.strftime('%Y-%m-%d %H:%M:%S %Z')
+            return dt.strftime(datefmt)
+        return dt.strftime('%Y-%m-%d %H:%M:%S %Z')
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# Configure root logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Apply the Eastern Time formatter to all handlers
-for handler in logger.handlers:
-    handler.setFormatter(EasternTimeFormatter('%(asctime)s - %(levelname)s - %(message)s'))
+# Set the formatter for all handlers
+formatter = EasternTimeFormatter('%(asctime)s - %(levelname)s - %(message)s')
+for handler in logging.getLogger().handlers:
+    handler.setFormatter(formatter)
 
 # Load environment variables from .env file
 load_dotenv()
