@@ -1,5 +1,7 @@
 import aiohttp
 import logging
+import time
+import asyncio
 from typing import Dict, Any
 
 # Get logger for this module
@@ -20,17 +22,28 @@ async def execute_graphql(shop, access_token, query):
     Raises:
         Exception: If there's an error during the API call
     """
-    try:
-        url = f"https://{shop}/admin/api/2025-01/graphql.json"
-        headers = {
-            "Content-Type": "application/json",
-            "X-Shopify-Access-Token": access_token
-        }
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=query) as response:
-                return await response.json()
-                
-    except Exception as error:
-        logger.error(f"GraphQL Execution Error: {error}")
-        raise error
+    max_retries = 5
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            url = f"https://{shop}/admin/api/2025-01/graphql.json"
+            headers = {
+                "Content-Type": "application/json",
+                "X-Shopify-Access-Token": access_token
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=query) as response:
+                    if response.status == 502:
+                        retry_count += 1
+                        if retry_count < max_retries:
+                            logger.warning(f"Received 502 error, retrying in 5 seconds... (Attempt {retry_count}/{max_retries})")
+                            await asyncio.sleep(5)
+                            continue
+                    
+                    return await response.json()
+                    
+        except Exception as error:
+            logger.error(f"GraphQL Execution Error: {error}")
+            raise error
