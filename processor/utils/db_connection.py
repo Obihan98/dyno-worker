@@ -39,7 +39,7 @@ def create_connection_pool(max_retries: Optional[int] = None) -> pool.SimpleConn
     retry_count = 0
     while True:
         try:
-            pool = pool.SimpleConnectionPool(
+            connection_pool = pool.SimpleConnectionPool(
                 1,  # minconn
                 10,  # maxconn
                 host=DB_HOST,
@@ -49,7 +49,7 @@ def create_connection_pool(max_retries: Optional[int] = None) -> pool.SimpleConn
                 password=DB_PASSWORD
             )
             logger.info("Successfully created database connection pool")
-            return pool
+            return connection_pool
         except psycopg2.Error as e:
             retry_count += 1
             if max_retries is not None and retry_count >= max_retries:
