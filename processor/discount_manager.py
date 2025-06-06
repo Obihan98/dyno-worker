@@ -450,7 +450,7 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
             response="Failed to generate some codes" if total_unsuccessful > 0 else "All codes generated successfully",
             failed_codes=failed_codes,
             success_codes_count=total_successful,
-            failed_codes_count=total_unsuccessful,
+            failed_codes_count=total_codes - total_successful if total_codes - total_successful > total_unsuccessful else total_unsuccessful,
             s3_object_name=s3_object_name
         )
         
