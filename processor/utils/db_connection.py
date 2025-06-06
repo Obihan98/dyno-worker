@@ -16,11 +16,16 @@ IS_DEV = os.getenv("IS_DEV")
 load_dotenv()
 
 # Get database connection details from environment variables
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = os.getenv("DB_PORT")
-DB_NAME = os.getenv("DB_NAME")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_CREDENTIALS = os.getenv("DB_CREDENTIALS", "")
+
+# Parse the credentials string
+if DB_CREDENTIALS:
+    try:
+        DB_USER, DB_PASSWORD, DB_HOST, DB_NAME = DB_CREDENTIALS.split(":")
+        DB_PORT = "5432"  # Default PostgreSQL port
+    except ValueError:
+        logger.error("Invalid DB_CREDENTIALS format. Expected format: username:password:host:database")
+        raise ValueError("Invalid DB_CREDENTIALS format")
 
 # Debug logging
 logger.info(f"Database connection details - Host: {DB_HOST}, Port: {DB_PORT}, Database: {DB_NAME}, User: {DB_USER}")
