@@ -230,20 +230,37 @@ def store_worker(store_name: str):
     logger.info(f"Starting new thread for {store_name}")
     
     while store_name in active_stores:
-        try:            # Get task from store's queue with timeout
+        try:
+            # Get task from store's queue with timeout
             try:
+                logger.info(f"Waiting for task in queue for store {store_name}")
                 task = store_queues[store_name].get(timeout=1)
+                logger.info(f"Retrieved task from queue for store {store_name}")
             except Empty:
+                continue
+            except Exception as queue_error:
+                logger.error(f"Error retrieving task from queue for store {store_name}: {queue_error}")
                 continue
             
             # Process the task
-            success = process_store_task(store_name, task)
-            
-            # Mark task as done
-            store_queues[store_name].task_done()
+            logger.info(f"Starting to process task for store {store_name}")
+            try:
+                success = process_store_task(store_name, task)
+                if success:
+                    logger.info(f"Successfully completed task for store {store_name}")
+                else:
+                    logger.error(f"Task processing failed for store {store_name}")
+            except Exception as process_error:
+                logger.error(f"Error processing task for store {store_name}: {process_error}")
+                logger.exception("Full traceback:")
+            finally:
+                # Mark task as done
+                store_queues[store_name].task_done()
+                logger.info(f"Marked task as done for store {store_name}")
                 
         except Exception as e:
-            logger.error(f"Error in store worker {store_name}: {e}")
+            logger.error(f"Unexpected error in store worker {store_name}: {e}")
+            logger.exception("Full traceback:")
             time.sleep(1)  # Wait before retrying
 
 def dispatcher():
@@ -271,11 +288,14 @@ def dispatcher():
                     logger.info(f"Received task for store: {store_name}")
                     
                     # Add task to store's queue
+                    logger.info(f"Adding task to queue for store {store_name}")
                     store_queues[store_name].put(task)
+                    logger.info(f"Successfully added task to queue for store {store_name}")
                     
                     # Start a new worker if this store doesn't have one
                     with active_stores_lock:
                         if store_name not in active_stores:
+                            logger.info(f"Creating new worker thread for store {store_name}")
                             thread = threading.Thread(
                                 target=store_worker,
                                 args=(store_name,),
@@ -284,6 +304,7 @@ def dispatcher():
                             thread.start()
                             active_stores.add(store_name)
                             store_last_activity[store_name] = datetime.now()
+                            logger.info(f"Started new worker thread for store {store_name}")
                 except json.JSONDecodeError as e:
                     logger.error(f"Error decoding task data: {e}")
                     logger.error(f"Raw task data: {task_data[1]}")

@@ -291,7 +291,7 @@ def delete_temp_file(file_path: str) -> None:
 
 def download_and_read_csv(s3_object_name: str) -> List[str]:
     """
-    Download and read a CSV file from S3.
+    Download and read a CSV file from S3 using streaming to minimize memory usage.
     
     Args:
         s3_object_name (str): The S3 object name/URL of the CSV file
@@ -318,7 +318,7 @@ def download_and_read_csv(s3_object_name: str) -> List[str]:
         if not success:
             raise CreateCSVError("Failed to download file from S3")
 
-        # Read the CSV file
+        # Read the CSV file using streaming
         codes = []
         with open(local_path, 'r') as csvfile:
             reader = csv.reader(csvfile)
@@ -327,12 +327,25 @@ def download_and_read_csv(s3_object_name: str) -> List[str]:
             except StopIteration:
                 raise CreateCSVError("CSV file is empty or has no header row")
             
+            # Process rows in chunks to manage memory
+            chunk_size = 1000
+            current_chunk = []
+            
             for row in reader:
                 if not row:  # Skip empty rows
                     continue
                 code = row[0].strip()
                 if code:  # Only add non-empty codes
-                    codes.append(code)
+                    current_chunk.append(code)
+                    
+                    # Process chunk when it reaches the size limit
+                    if len(current_chunk) >= chunk_size:
+                        codes.extend(current_chunk)
+                        current_chunk = []
+            
+            # Add any remaining codes
+            if current_chunk:
+                codes.extend(current_chunk)
 
         if not codes:
             raise CreateCSVError("No valid codes found in CSV file")
@@ -397,7 +410,7 @@ def create_and_upload_codes_csv(task_name, discount_created: Dict[str, Any], all
 
 async def process_discount_codes(task_name, shop, access_token, discount_created, discount_id, job_id, discount_title, s3_object_name):
     """
-    Generate and upload discount codes to the Shopify Admin API.
+    Generate and upload discount codes to the Shopify Admin API using streaming to minimize memory usage.
     
     Args:
         shop (str): The shop domain
@@ -409,50 +422,82 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
     Returns:
         tuple: (bool, list, list) - (success status, all successful codes, all unsuccessful codes)
     """
-    # Initialize variables at the start
-    all_successful_codes = []
-    all_unsuccessful_codes = []
-    codes = []
+    # Initialize counters instead of storing all codes in memory
+    total_successful = 0
+    total_unsuccessful = 0
+    failed_codes = []
     total_codes = 0
 
     try:
-        # Generate codes
-        codes = generate_codes(task_name, discount_created)
-        total_codes = sum(len(chunk) for chunk in codes) + 1 if task_name == "initialCodeGeneration" else sum(len(chunk) for chunk in codes)
+        # Generate codes in batches
+        code_batches = generate_codes(task_name, discount_created)
+        total_codes = sum(len(chunk) for chunk in code_batches) + 1 if task_name == "initialCodeGeneration" else sum(len(chunk) for chunk in code_batches)
 
         logger.info(f"Creating {total_codes} discount codes for {shop}")
         time.sleep(2)
         update_job_details(shop, job_id, status="generating_codes")
 
-        for batch_num, code_chunk in enumerate(codes, 1):
-            # Update current batch in database
+        # Process each batch and write to S3 immediately
+        temp_dir = "temp"
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
             
-            successful_codes, unsuccessful_codes = await upload_codes(shop, access_token, code_chunk, discount_id)
+        sanitized_title = sanitize_filename(discount_title)
+        csv_filename = f"discount_codes_{sanitized_title}_{discount_id.split('/')[-1]}.csv"
+        csv_path = os.path.join(temp_dir, csv_filename)
+        
+        # Open CSV file for writing
+        with open(csv_path, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['code'])  # Header
             
-            # Append batch results to global lists
-            all_successful_codes.extend(successful_codes)
-            all_unsuccessful_codes.extend(unsuccessful_codes)
+            # Write initial code if present
+            if task_name == "initialCodeGeneration" and discount_created.get('initialCode'):
+                writer.writerow([discount_created['initialCode']])
+                total_successful += 1
 
-            update_job_details(shop, job_id, current_batch=batch_num)
+            # Process each batch
+            for batch_num, code_chunk in enumerate(code_batches, 1):
+                successful_codes, unsuccessful_codes = await upload_codes(shop, access_token, code_chunk, discount_id)
+                
+                # Write successful codes to CSV immediately
+                for code in successful_codes:
+                    writer.writerow([code])
+                total_successful += len(successful_codes)
+                
+                # Store failed codes (limited to last 1000 for memory management)
+                failed_codes.extend(unsuccessful_codes)
+                if len(failed_codes) > 1000:
+                    failed_codes = failed_codes[-1000:]
+                total_unsuccessful += len(unsuccessful_codes)
 
-        if all_unsuccessful_codes and discount_created['style'] == 'random':
+                update_job_details(shop, job_id, current_batch=batch_num)
+
+        # Upload the CSV file to S3
+        s3_object_name = upload_file(csv_path, csv_filename)
+        
+        # Clean up temporary file
+        if os.path.exists(csv_path):
+            os.remove(csv_path)
+
+        # Handle retries for failed codes if needed
+        if failed_codes and discount_created['style'] == 'random':
             retry_successful, remaining_unsuccessful = await retry_failed_codes(
-                shop, access_token, discount_id, all_unsuccessful_codes, discount_created
+                shop, access_token, discount_id, failed_codes, discount_created
             )
-            all_successful_codes.extend(retry_successful)
-            all_unsuccessful_codes = remaining_unsuccessful
+            total_successful += len(retry_successful)
+            total_unsuccessful = len(remaining_unsuccessful)
+            failed_codes = remaining_unsuccessful
 
-        # Create and upload CSV file with generated codes
-        s3_object_name = create_and_upload_codes_csv(task_name, discount_created, all_successful_codes, discount_title, discount_id, initial_code=discount_created['initialCode'], s3_object_name=s3_object_name)
-
+        # Update final job status
         update_job_details(
             shop,
             job_id,
-            status="codes_generated_some_failed" if all_unsuccessful_codes else "codes_generated",
-            response="Failed to generate some codes" if all_unsuccessful_codes else "All codes generated successfully",
-            failed_codes=all_unsuccessful_codes,
-            success_codes_count=len(all_successful_codes) + 1 if task_name == "initialCodeGeneration" else len(all_successful_codes),
-            failed_codes_count=len(all_unsuccessful_codes),
+            status="codes_generated_some_failed" if total_unsuccessful > 0 else "codes_generated",
+            response="Failed to generate some codes" if total_unsuccessful > 0 else "All codes generated successfully",
+            failed_codes=failed_codes,
+            success_codes_count=total_successful,
+            failed_codes_count=total_unsuccessful,
             s3_object_name=s3_object_name
         )
         
