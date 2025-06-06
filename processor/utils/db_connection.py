@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
 from sqlalchemy.exc import SQLAlchemyError
@@ -78,7 +78,9 @@ def execute_query(query: str, params: Optional[dict] = None) -> Optional[list]:
             if params:
                 logger.info(f"Query parameters: {params}")
             
-            result = session.execute(query, params)
+            # Convert the query string to a SQLAlchemy text object
+            sql_text = text(query)
+            result = session.execute(sql_text, params)
             
             if result.returns_rows:
                 results = result.fetchall()
