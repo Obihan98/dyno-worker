@@ -1,16 +1,15 @@
-import psycopg2
-from psycopg2 import pool
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import QueuePool
+from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
 import os
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Generator, Optional
 from contextlib import contextmanager
-import time
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
-
-IS_DEV = os.getenv("IS_DEV")
 
 # Load environment variables
 load_dotenv()
@@ -27,103 +26,70 @@ if DB_CREDENTIALS:
         logger.error("Invalid DB_CREDENTIALS format. Expected format: username:password:host:database")
         raise ValueError("Invalid DB_CREDENTIALS format")
 
-# Debug logging
-logger.info(f"Database connection details - Host: {DB_HOST}, Port: {DB_PORT}, Database: {DB_NAME}, User: {DB_USER}")
+# Create database URL
+DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-# Create a connection pool
-def create_connection_pool(max_retries: Optional[int] = None) -> pool.SimpleConnectionPool:
-    """
-    Create a database connection pool with retry mechanism.
-    
-    Args:
-        max_retries (int, optional): Maximum number of retry attempts. If None, will retry indefinitely.
-    
-    Returns:
-        pool.SimpleConnectionPool: The created connection pool
-    """
-    retry_count = 0
-    while True:
-        try:
-            connection_pool = pool.SimpleConnectionPool(
-                1,  # minconn
-                10,  # maxconn
-                host=DB_HOST,
-                port=DB_PORT,
-                database=DB_NAME,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                sslmode='require'  # Enable SSL for AWS RDS
-            )
-            logger.info("Successfully created database connection pool")
-            return connection_pool
-        except psycopg2.Error as e:
-            retry_count += 1
-            if max_retries is not None and retry_count >= max_retries:
-                logger.error(f"Failed to create database connection pool after {max_retries} attempts: {str(e)}")
-                raise
-            
-            logger.warning(f"Failed to create database connection pool (attempt {retry_count}): {str(e)}")
-            logger.info("Retrying in 10 seconds...")
-            time.sleep(10)
-        except Exception as e:
-            logger.error(f"Unexpected error in create_connection_pool: {e}")
-            raise
+# Create engine with connection pooling
+engine = create_engine(
+    DATABASE_URL,
+    poolclass=QueuePool,
+    pool_size=5,  # Maximum number of connections to keep
+    max_overflow=10,  # Maximum number of connections that can be created beyond pool_size
+    pool_timeout=30,  # Seconds to wait before giving up on getting a connection from the pool
+    pool_recycle=1800,  # Recycle connections after 30 minutes
+    pool_pre_ping=True,  # Enable connection health checks
+    echo=False  # Set to True for SQL query logging
+)
 
-connection_pool = create_connection_pool()
+# Create session factory
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 @contextmanager
-def get_db_connection():
+def get_db_session() -> Generator[Session, None, None]:
     """
-    Context manager for database connections.
-    Ensures connections are properly released back to the pool.
+    Context manager for database sessions.
+    Ensures sessions are properly closed and transactions are handled correctly.
     """
-    conn = None
+    session = SessionLocal()
     try:
-        conn = connection_pool.getconn()
-        yield conn
+        yield session
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Database session error: {str(e)}")
+        raise
     finally:
-        if conn is not None:
-            connection_pool.putconn(conn)
+        session.close()
 
-def execute_query(query, params=None):
+def execute_query(query: str, params: Optional[dict] = None) -> Optional[list]:
     """
-    Execute a database query with proper connection management.
+    Execute a database query with proper session management.
     
     Args:
         query (str): The SQL query to execute
-        params (tuple, optional): Parameters for the query
+        params (dict, optional): Parameters for the query
         
     Returns:
         list: Query results
     """
     try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cursor:
-                try:
-                    logger.info(f"Executing query: {query}")
-                    if params:
-                        logger.info(f"Query parameters: {params}")
-                    
-                    cursor.execute(query, params)
-                    
-                    if cursor.description:  # If the query returns results
-                        results = cursor.fetchall()
-                        logger.info(f"Query returned {len(results)} results")
-                        return results
-                    
-                    logger.info("Query executed successfully")
-                    return None
-                except psycopg2.Error as e:
-                    logger.error(f"Database error executing query: {str(e)}")
-                    logger.error(f"Error code: {e.pgcode}, Error message: {e.pgerror}")
-                    raise
+        with get_db_session() as session:
+            logger.info(f"Executing query: {query}")
+            if params:
+                logger.info(f"Query parameters: {params}")
+            
+            result = session.execute(query, params)
+            
+            if result.returns_rows:
+                results = result.fetchall()
+                logger.info(f"Query returned {len(results)} results")
+                return results
+            
+            logger.info("Query executed successfully")
+            return None
+    except SQLAlchemyError as e:
+        logger.error(f"Database error executing query: {str(e)}")
+        raise
     except Exception as e:
         logger.error(f"Unexpected error in execute_query: {str(e)}")
         raise
-
-def release_connection(conn):
-    """
-    Release a connection back to the pool
-    """
-    if conn is not None:
-        connection_pool.putconn(conn)
