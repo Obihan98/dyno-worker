@@ -175,35 +175,35 @@ def update_job_details(shop, job_id, status=None, response=None, failed_codes=No
         current_batch (int, optional): The current batch number being processed
     """
     update_parts = []
-    params = []
+    params = {}
     
     if status is not None:
-        update_parts.append("job_status = %s")
-        params.append(status)
+        update_parts.append("job_status = :status")
+        params['status'] = status
     
     if response is not None:
-        update_parts.append("job_response = %s")
-        params.append(response)
+        update_parts.append("job_response = :response")
+        params['response'] = response
     
     if failed_codes is not None:
-        update_parts.append("failed_codes = %s")
-        params.append(json.dumps(failed_codes))
+        update_parts.append("failed_codes = :failed_codes")
+        params['failed_codes'] = json.dumps(failed_codes)
     
     if failed_codes_count is not None:
-        update_parts.append("failed_code_count = %s")
-        params.append(failed_codes_count)
+        update_parts.append("failed_code_count = :failed_codes_count")
+        params['failed_codes_count'] = failed_codes_count
         
     if success_codes_count is not None:
-        update_parts.append("success_code_count = %s")
-        params.append(success_codes_count)
+        update_parts.append("success_code_count = :success_codes_count")
+        params['success_codes_count'] = success_codes_count
         
     if current_batch is not None:
-        update_parts.append("current_batch = %s")
-        params.append(current_batch)
+        update_parts.append("current_batch = :current_batch")
+        params['current_batch'] = current_batch
     
     if s3_object_name is not None:
-        update_parts.append("s3_object_name = %s")
-        params.append(s3_object_name)
+        update_parts.append("s3_object_name = :s3_object_name")
+        params['s3_object_name'] = s3_object_name
     
     if not update_parts:
         return
@@ -211,11 +211,12 @@ def update_job_details(shop, job_id, status=None, response=None, failed_codes=No
     update_query = f"""
         UPDATE dyno_discounts 
         SET {', '.join(update_parts)}
-        WHERE shop = %s AND job_id = %s
+        WHERE shop = :shop AND job_id = :job_id
     """
     
-    # Convert params to tuple and add shop and job_id
-    params = tuple(params + [shop, int(job_id)])
+    # Add shop and job_id to params
+    params['shop'] = shop
+    params['job_id'] = int(job_id)
     
     logger.info(f"Updating job details for shop {shop}, job {job_id} with data {update_parts} and params {params}")
     execute_query(update_query, params)
