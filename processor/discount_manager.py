@@ -352,7 +352,9 @@ def create_and_upload_codes_csv(task_name, discount_created: Dict[str, Any], all
     
 def isStopped(shop, job_id):
     job_details = get_job_details(shop, job_id)
-    return job_details.get('status') == 'stopping_generation'
+    if not job_details or len(job_details) == 0:
+        return False
+    return job_details[0].get('job_status') == 'stopping_generation'
 
 async def process_discount_codes(task_name, shop, access_token, discount_created, discount_id, job_id, discount_title, s3_object_name):
     """
