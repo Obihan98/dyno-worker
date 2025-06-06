@@ -4,7 +4,7 @@ import os
 from urllib.parse import urlparse
 
 # Parse Redis URL
-redis_url = os.getenv("REDIS_URL", "rediss://red-d0n9kvpr0fns738piim0:NKXEbKp3QkSIsrnsOk4Twp6RTPni0by4@virginia-keyvalue.render.com:6379")
+redis_url = os.getenv("REDIS_URL")
 parsed_url = urlparse(redis_url)
 
 # Set up Redis connection
