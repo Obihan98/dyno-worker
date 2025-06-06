@@ -8,9 +8,12 @@ It handles the execution of tasks and provides error handling and logging.
 import os
 import time
 import json
+import logging
 from typing import Dict, List, Tuple, Any
 
 from processor.discount_manager import process_discount_codes
+
+logger = logging.getLogger(__name__)
 
 IS_DEV = os.getenv("IS_DEV")
 
@@ -46,5 +49,5 @@ async def execute_task(task_data: Dict[str, Any]) -> bool:
         return response
         
     except Exception as e:
-        if IS_DEV: print(f"Error executing task for store {task_data.get('store_name', 'unknown')}:{str(e)}", flush=True)
+        logger.error(f"Error executing task for store {task_data.get('store_name', 'unknown')}: {str(e)}")
         return False

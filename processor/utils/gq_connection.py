@@ -1,6 +1,10 @@
 import aiohttp
+import logging
+from typing import Dict, Any
 
-async def execute_graphql(shop, access_token, query):
+logger = logging.getLogger(__name__)
+
+async def execute_graphql(shop: str, access_token: str, query: Dict[str, Any]) -> Dict[str, Any]:
     """
     Execute a GraphQL query against the Shopify Admin API.
     
@@ -27,5 +31,5 @@ async def execute_graphql(shop, access_token, query):
                 return await response.json()
                 
     except Exception as error:
-        print(f"GraphQL Execution Error: {error}")
+        logger.error(f"GraphQL Execution Error: {error}")
         raise error

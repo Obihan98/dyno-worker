@@ -3,6 +3,9 @@ import os
 import boto3
 from botocore.exceptions import ClientError
 from urllib.parse import urlparse
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -50,45 +53,39 @@ def generate_url(object_name):
             
         return url
     except ClientError as e:
-        print(f"Error generating URL: {e}")
+        logger.error(f"Error generating URL: {e}")
         return None
     except Exception as e:
-        print(f"Unexpected error generating URL: {e}")
+        logger.error(f"Unexpected error generating URL: {e}")
         return None
 
-def upload_file(file_path, object_name):
+def upload_file(file_path: str, object_name: str) -> bool:
     """
-    Upload a file to S3 and return the object name and URL
+    Upload a file to S3
     
     Args:
         file_path (str): Path to the file to upload
         object_name (str): Name to give the file in S3
         
     Returns:
-        tuple: (object_name, url)
-            - object_name: The name of the object in S3
-            - url: Presigned URL valid for 1 day
+        bool: True if upload was successful, False otherwise
     """
     try:
-        # Upload file with content disposition for download
         s3.upload_file(
-            file_path, 
-            s3_bucketName, 
-            object_name,
-            ExtraArgs={
-                'ContentDisposition': 'attachment'
-            }
+            file_path,
+            s3_bucketName,
+            object_name
         )
-            
-        return object_name
+        logger.info(f"Successfully uploaded {file_path} to S3 as {object_name}")
+        return True
     except ClientError as e:
-        print(f"Error uploading file to S3: {e}")
-        return None, None
+        logger.error(f"Error uploading file to S3: {e}")
+        return False
     except Exception as e:
-        print(f"Unexpected error in upload_file: {e}")
-        return None, None
+        logger.error(f"Unexpected error in upload_file: {e}")
+        return False
 
-def download_file(object_name, local_path):
+def download_file(object_name: str, local_path: str) -> bool:
     """
     Download a file from S3 to a local path
     
@@ -105,10 +102,11 @@ def download_file(object_name, local_path):
             object_name,
             local_path
         )
+        logger.info(f"Successfully downloaded {object_name} from S3 to {local_path}")
         return True
     except ClientError as e:
-        print(f"Error downloading file from S3: {e}")
+        logger.error(f"Error downloading file from S3: {e}")
         return False
     except Exception as e:
-        print(f"Unexpected error in download_file: {e}")
+        logger.error(f"Unexpected error in download_file: {e}")
         return False

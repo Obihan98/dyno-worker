@@ -1,50 +1,58 @@
+import os
+import logging
+from typing import Optional, Any, List, Dict
 import psycopg2
 from psycopg2 import pool
 from dotenv import load_dotenv
-import os
 
-IS_DEV = os.getenv("IS_DEV")
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
 
-# Get database credentials from environment variable
-DB_CREDENTIALS = os.getenv('DB_CREDENTIALS')
-user, password, host, database = DB_CREDENTIALS.split(':')
+# Database connection pool
+connection_pool = None
 
-# Create a connection pool
-connection_pool = pool.ThreadedConnectionPool(
-    minconn=1,
-    maxconn=10,
-    user=user,
-    host=host,
-    database=database,
-    password=password,
-    port=5432,
-    sslmode='require',
-    sslrootcert=None  # This is equivalent to rejectUnauthorized: false in Node.js
-)
+# Get database credentials from environment
+DB_CREDENTIALS = os.getenv("DB_CREDENTIALS")
+
+def init_connection_pool():
+    """Initialize the database connection pool"""
+    global connection_pool
+    try:
+        if not DB_CREDENTIALS:
+            logger.error("Error: DB_CREDENTIALS environment variable is not set")
+            return None
+            
+        connection_pool = psycopg2.pool.SimpleConnectionPool(
+            1,  # minconn
+            10,  # maxconn
+            DB_CREDENTIALS
+        )
+        logger.info("Database connection pool initialized successfully")
+    except Exception as e:
+        logger.error(f"Error initializing database connection pool: {str(e)}")
+        raise
 
 def get_connection():
-    """
-    Get a connection from the pool
-    """
+    """Get a connection from the pool"""
+    if not connection_pool:
+        init_connection_pool()
     return connection_pool.getconn()
 
 def release_connection(conn):
-    """
-    Release a connection back to the pool
-    """
-    connection_pool.putconn(conn)
+    """Release a connection back to the pool"""
+    if connection_pool:
+        connection_pool.putconn(conn)
 
-def execute_query(query: str, params):
+def execute_query(query: str, params) -> Optional[List[Any]]:
     """
     Execute a query and return the results
     """
     conn = None
     try:
         if not DB_CREDENTIALS:
-            print("Error: DB_CREDENTIALS environment variable is not set", flush=True)
+            logger.error("Error: DB_CREDENTIALS environment variable is not set")
             return None
             
         conn = get_connection()
@@ -56,9 +64,9 @@ def execute_query(query: str, params):
                 return results
             return None
     except Exception as e:
-        print(f"Database Error: {str(e)}", flush=True)
-        print(f"Query: {query}", flush=True)
-        print(f"Params: {params}", flush=True)
+        logger.error(f"Database Error: {str(e)}")
+        logger.debug(f"Query: {query}")
+        logger.debug(f"Params: {params}")
         if conn:
             conn.rollback()  # Rollback on error
     finally:
