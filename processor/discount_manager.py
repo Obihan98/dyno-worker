@@ -216,7 +216,7 @@ def update_job_details(shop, job_id, status=None, response=None, failed_codes=No
     
     params.extend([shop, int(job_id)])
     
-    logger.info(f"Updating job details for shop {shop}, job {job_id} with query {update_parts}")
+    logger.info(f"Updating job details for shop {shop}, job {job_id} with data {update_parts} and params {params}")
     execute_query(update_query, tuple(params))
 
 async def retry_failed_codes(

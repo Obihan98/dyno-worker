@@ -51,7 +51,8 @@ def create_connection_pool(max_retries: Optional[int] = None) -> pool.SimpleConn
                 port=DB_PORT,
                 database=DB_NAME,
                 user=DB_USER,
-                password=DB_PASSWORD
+                password=DB_PASSWORD,
+                sslmode='require'  # Enable SSL for AWS RDS
             )
             logger.info("Successfully created database connection pool")
             return connection_pool
@@ -64,6 +65,9 @@ def create_connection_pool(max_retries: Optional[int] = None) -> pool.SimpleConn
             logger.warning(f"Failed to create database connection pool (attempt {retry_count}): {str(e)}")
             logger.info("Retrying in 10 seconds...")
             time.sleep(10)
+        except Exception as e:
+            logger.error(f"Unexpected error in create_connection_pool: {e}")
+            raise
 
 connection_pool = create_connection_pool()
 
