@@ -107,7 +107,7 @@ redis_manager = RedisConnectionManager(REDIS_URL)
 
 # Global state for store management
 store_locks = defaultdict(threading.Lock)
-store_queues = defaultdict(Queue)
+store_queues = {}  # Changed from defaultdict(Queue) to regular dict
 active_stores: Set[str] = set()
 active_stores_lock = Lock()
 store_last_activity = defaultdict(lambda: datetime.now())
@@ -286,6 +286,10 @@ def dispatcher():
 
                     logger.info(f"Received task for store: {store_name}")
                     
+                    # Create queue for store if it doesn't exist
+                    if store_name not in store_queues:
+                        store_queues[store_name] = Queue()
+                    
                     # Add task to store's queue
                     logger.info(f"Adding task to queue for store {store_name}")
                     store_queues[store_name].put(task)
@@ -303,7 +307,6 @@ def dispatcher():
                             thread.start()
                             active_stores.add(store_name)
                             store_last_activity[store_name] = datetime.now()
-                            logger.info(f"Started new worker thread for store {store_name}")
                 except json.JSONDecodeError as e:
                     logger.error(f"Error decoding task data: {e}")
                     logger.error(f"Raw task data: {task_data[1]}")
