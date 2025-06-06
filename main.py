@@ -107,7 +107,7 @@ redis_manager = RedisConnectionManager(REDIS_URL)
 
 # Global state for store management
 store_locks = defaultdict(threading.Lock)
-store_queues = {}  # Changed from defaultdict(Queue) to regular dict
+store_queues = {}  # Dictionary to store queues for each store
 active_stores: Set[str] = set()
 active_stores_lock = Lock()
 store_last_activity = defaultdict(lambda: datetime.now())
@@ -210,35 +210,36 @@ def store_worker(store_name: str):
     
     while store_name in active_stores:
         try:
-            # Get task from store's queue with timeout
-            try:
-                logger.info(f"Waiting for task in queue for store {store_name}")
-                task = store_queues[store_name].get(timeout=1)
-                logger.info(f"Retrieved task from queue for store {store_name}")
-                logger.info(f"Task data structure: {json.dumps(task, indent=2)}")
-                
-                # Validate required fields
-                if not task.get('discountDB'):
-                    logger.error(f"Missing discountDB field in task data for store {store_name}")
-                    continue
-                if not task.get('shopDataDB'):
-                    logger.error(f"Missing shopDataDB field in task data for store {store_name}")
-                    continue
-                if not task.get('discountCreated'):
-                    logger.error(f"Missing discountCreated field in task data for store {store_name}")
-                    continue
-            except Empty:
-                # If queue is empty, clean up the store and exit
-                logger.info(f"Queue empty for store {store_name}, cleaning up...")
+            # Get task from store's queue
+            if store_name not in store_queues or not store_queues[store_name]:
+                logger.info(f"No tasks in queue for store {store_name}, cleaning up...")
                 with active_stores_lock:
                     if store_name in active_stores:
                         active_stores.remove(store_name)
                         del store_last_activity[store_name]
                         del store_processing[store_name]
+                        if store_name in store_queues:
+                            del store_queues[store_name]
                         logger.info(f"Cleaned up store: {store_name}")
                 return
-            except Exception as queue_error:
-                logger.error(f"Error retrieving task from queue for store {store_name}: {queue_error}")
+
+            # Get the first task from the queue
+            task = store_queues[store_name][0]
+            logger.info(f"Retrieved task from queue for store {store_name}")
+            logger.info(f"Task data structure: {json.dumps(task, indent=2)}")
+            
+            # Validate required fields
+            if not task.get('discountDB'):
+                logger.error(f"Missing discountDB field in task data for store {store_name}")
+                store_queues[store_name].pop(0)  # Remove invalid task
+                continue
+            if not task.get('shopDataDB'):
+                logger.error(f"Missing shopDataDB field in task data for store {store_name}")
+                store_queues[store_name].pop(0)  # Remove invalid task
+                continue
+            if not task.get('discountCreated'):
+                logger.error(f"Missing discountCreated field in task data for store {store_name}")
+                store_queues[store_name].pop(0)  # Remove invalid task
                 continue
             
             # Process the task
@@ -253,9 +254,9 @@ def store_worker(store_name: str):
                 logger.error(f"Error processing task for store {store_name}: {process_error}")
                 logger.exception("Full traceback:")
             finally:
-                # Mark task as done
-                store_queues[store_name].task_done()
-                logger.info(f"Marked task as done for store {store_name}")
+                # Remove the processed task from the queue
+                store_queues[store_name].pop(0)
+                logger.info(f"Removed task from queue for store {store_name}")
                 
         except Exception as e:
             logger.error(f"Unexpected error in store worker {store_name}: {e}")
@@ -288,25 +289,26 @@ def dispatcher():
                     
                     # Create queue for store if it doesn't exist
                     if store_name not in store_queues:
-                        store_queues[store_name] = Queue()
+                        store_queues[store_name] = []
                     
                     # Add task to store's queue
                     logger.info(f"Adding task to queue for store {store_name}")
-                    store_queues[store_name].put(task)
+                    store_queues[store_name].append(task)
                     logger.info(f"Successfully added task to queue for store {store_name}")
                     
                     # Start a new worker if this store doesn't have one
                     with active_stores_lock:
                         if store_name not in active_stores:
                             logger.info(f"Creating new worker thread for store {store_name}")
+                            active_stores.add(store_name)
+                            store_last_activity[store_name] = datetime.now()
                             thread = threading.Thread(
                                 target=store_worker,
                                 args=(store_name,),
                                 daemon=True
                             )
                             thread.start()
-                            active_stores.add(store_name)
-                            store_last_activity[store_name] = datetime.now()
+
                 except json.JSONDecodeError as e:
                     logger.error(f"Error decoding task data: {e}")
                     logger.error(f"Raw task data: {task_data[1]}")
