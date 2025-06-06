@@ -41,7 +41,7 @@ class EasternTimeFormatter(logging.Formatter):
         return dt.strftime('%Y-%m-%d %H:%M:%S %Z')
 
 # Configure root logger
-logging.basicConfig(level=logging.DEBUG)  # Change to DEBUG level
+logging.basicConfig(level=logging.INFO)  # Changed from DEBUG to INFO level
 logger = logging.getLogger(__name__)
 
 # Set the formatter for all handlers
