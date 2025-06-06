@@ -1,6 +1,7 @@
 from processor.utils.gq_connection import execute_graphql
 from processor.utils.db_connection import execute_query
 from processor.utils.s3_connection import upload_file, download_file
+from processor.discount_db import update_job_details, get_job_details
 
 from processor.code_generator.generator import generate_codes
 
@@ -159,67 +160,6 @@ async def upload_codes(shop, access_token, code_chunk, discount_id):
     successful_codes, unsuccessful_codes = process_codes_status(codes_status)
 
     return successful_codes, unsuccessful_codes
-
-def update_job_details(shop, job_id, status=None, response=None, failed_codes=None, failed_codes_count=None, success_codes_count=None, current_batch=None, s3_object_name=None):
-    """
-    Update multiple job-related fields in the database in a single query.
-    
-    Args:
-        shop (str): The shop domain
-        job_id (str): The job identifier
-        status (str, optional): The new status to set for the job
-        response (str, optional): The response to set for the job
-        failed_codes (list, optional): List of failed codes to store
-        failed_codes_count (int, optional): Count of failed codes
-        success_codes_count (int, optional): Count of successful codes
-        current_batch (int, optional): The current batch number being processed
-    """
-    update_parts = []
-    params = {}
-    
-    if status is not None:
-        update_parts.append("job_status = :status")
-        params['status'] = status
-    
-    if response is not None:
-        update_parts.append("job_response = :response")
-        params['response'] = response
-    
-    if failed_codes is not None:
-        update_parts.append("failed_codes = :failed_codes")
-        params['failed_codes'] = json.dumps(failed_codes)
-    
-    if failed_codes_count is not None:
-        update_parts.append("failed_code_count = :failed_codes_count")
-        params['failed_codes_count'] = failed_codes_count
-        
-    if success_codes_count is not None:
-        update_parts.append("success_code_count = :success_codes_count")
-        params['success_codes_count'] = success_codes_count
-        
-    if current_batch is not None:
-        update_parts.append("current_batch = :current_batch")
-        params['current_batch'] = current_batch
-    
-    if s3_object_name is not None:
-        update_parts.append("s3_object_name = :s3_object_name")
-        params['s3_object_name'] = s3_object_name
-    
-    if not update_parts:
-        return
-    
-    update_query = f"""
-        UPDATE dyno_discounts 
-        SET {', '.join(update_parts)}
-        WHERE shop = :shop AND job_id = :job_id
-    """
-    
-    # Add shop and job_id to params
-    params['shop'] = shop
-    params['job_id'] = int(job_id)
-    
-    logger.info(f"Updating job details for shop {shop}, job {job_id} with data {update_parts} and params {params}")
-    execute_query(update_query, params)
 
 async def retry_failed_codes(
     shop: str,
@@ -409,6 +349,10 @@ def create_and_upload_codes_csv(task_name, discount_created: Dict[str, Any], all
         if 'csv_path' in locals():
             delete_temp_file(csv_path)
         raise CreateCSVError(f"Error creating/uploading CSV file: {str(e)}")
+    
+def isStopped(shop, job_id):
+    job_details = get_job_details(shop, job_id)
+    return job_details.get('status') == 'stopping_generation'
 
 async def process_discount_codes(task_name, shop, access_token, discount_created, discount_id, job_id, discount_title, s3_object_name):
     """
@@ -460,6 +404,9 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
 
             # Process each batch
             for batch_num, code_chunk in enumerate(code_batches, 1):
+                if isStopped(shop, job_id):
+                    break
+
                 successful_codes, unsuccessful_codes = await upload_codes(shop, access_token, code_chunk, discount_id)
                 
                 # Write successful codes to CSV immediately
