@@ -355,7 +355,6 @@ def isStopped(shop, job_id):
     if not job_details or len(job_details) == 0:
         return False
     
-    logger.info(f"Job details: {job_details[0]}")
     return job_details[0].job_status == 'stopping_generation'
 
 async def process_discount_codes(task_name, shop, access_token, discount_created, discount_id, job_id, discount_title, s3_object_name):
@@ -443,6 +442,19 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
             failed_codes = remaining_unsuccessful
 
         # Update final job status
+        if isStopped(shop, job_id):
+            update_job_details(
+                shop,
+                job_id,
+                status="codes_generated_some_failed" if total_unsuccessful > 0 else "codes_generated_stopped",
+                response="Failed to generate some codes" if total_unsuccessful > 0 else "All codes generated successfully",
+                failed_codes=failed_codes,
+                success_codes_count=total_successful,
+                failed_codes_count=total_codes - total_successful if total_codes - total_successful > total_unsuccessful else total_unsuccessful,
+                s3_object_name=s3_object_name
+            )
+            return True
+        
         update_job_details(
             shop,
             job_id,
@@ -453,7 +465,6 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
             failed_codes_count=total_codes - total_successful if total_codes - total_successful > total_unsuccessful else total_unsuccessful,
             s3_object_name=s3_object_name
         )
-        
         return True
     
     except CheckBulkCreationStatusError as e:

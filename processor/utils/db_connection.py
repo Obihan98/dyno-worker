@@ -74,9 +74,9 @@ def execute_query(query: str, params: Optional[dict] = None) -> Optional[list]:
     """
     try:
         with get_db_session() as session:
-            logger.info(f"Executing query: {query}")
-            if params:
-                logger.info(f"Query parameters: {params}")
+            # logger.info(f"Executing query: {query}")
+            # if params:
+            #     logger.info(f"Query parameters: {params}")
             
             # Convert the query string to a SQLAlchemy text object
             sql_text = text(query)
