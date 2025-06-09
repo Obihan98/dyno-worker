@@ -91,3 +91,47 @@ def get_job_details(shop, job_id):
     logger.info(f"Fetching job details for shop {shop}, job {job_id}")
     result = execute_query(query, params)
     return result
+
+def get_shop_data(shop: str) -> dict | None:
+    """
+    Fetch the current row details for a specific shop from the dyno_stores table.
+    
+    Args:
+        shop (str): The shop domain
+        
+    Returns:
+        dict | None: A dictionary containing shop data if found, None otherwise.
+        The dictionary contains the following keys:
+        - shop: The shop domain
+        - email: The shop owner's email
+        - access_token: The shop's access token
+        - additional_data: Any additional data stored for the shop
+        - is_active: Whether the shop is active
+        - is_deleted: Whether the shop is deleted
+    """
+    query = """
+        SELECT *
+        FROM dyno_stores
+        WHERE shop = :shop
+    """
+    params = {
+        'shop': shop
+    }
+    result = execute_query(query, params)
+    
+    if not result or len(result) == 0:
+        logger.info(f"No shop data found for shop {shop}")
+        return None
+        
+    # Convert tuple to dictionary with meaningful keys
+    shop_data = {
+        'shop': result[0][0],
+        'email': result[0][1],
+        'access_token': result[0][2],
+        'review_status': result[0][3],
+        'onboarded': result[0][4],
+        'download_notification_sent': result[0][5]
+    }
+    
+    logger.info(f"Shop data for shop {shop}: {shop_data}")
+    return shop_data

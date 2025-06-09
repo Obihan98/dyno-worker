@@ -1,9 +1,11 @@
 from processor.utils.gq_connection import execute_graphql
 from processor.utils.db_connection import execute_query
 from processor.utils.s3_connection import upload_file, download_file
-from processor.discount_db import update_job_details, get_job_details
+from processor.discount_db import update_job_details, get_job_details, get_shop_data
 
 from processor.code_generator.generator import generate_codes
+
+from processor.utils.email_connection import send_codes_generated_email
 
 import time
 import json
@@ -465,6 +467,8 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
             failed_codes_count=total_codes - total_successful if total_codes - total_successful > total_unsuccessful else total_unsuccessful,
             s3_object_name=s3_object_name
         )
+        shop_data = get_shop_data(shop)
+        await send_codes_generated_email(shop_data)
         return True
     
     except CheckBulkCreationStatusError as e:
