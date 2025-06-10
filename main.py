@@ -41,7 +41,7 @@ class EasternTimeFormatter(logging.Formatter):
         return dt.strftime('%Y-%m-%d %H:%M:%S %Z')
 
 # Configure root logger
-logging.basicConfig(level=logging.INFO)  # Changed from DEBUG to INFO level
+logging.basicConfig(level=logging.WARNING)  # Changed from INFO to WARNING level
 logger = logging.getLogger(__name__)
 
 # Set the formatter for all handlers
@@ -285,7 +285,7 @@ def dispatcher():
                         logger.error(f"Invalid task data - missing shop name: {task_data[1]}")
                         continue
 
-                    logger.info(f"Received task for store: {store_name}")
+                    logger.warning(f"Received task for store: {store_name}")
                     
                     # Create queue for store if it doesn't exist
                     if store_name not in store_queues:
