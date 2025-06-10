@@ -169,6 +169,10 @@ async def send_codes_generated_email(shop_data: dict) -> bool:
             font-size: 12px;
             color: #888888;
         }}
+        .footer a {{
+            color: #666;
+            text-decoration: underline;
+        }}
     </style>
 </head>
 <body>
