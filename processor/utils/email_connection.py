@@ -169,16 +169,6 @@ async def send_codes_generated_email(shop_data: dict) -> bool:
             font-size: 12px;
             color: #888888;
         }}
-        .unsubscribe {{
-            margin-top: 20px;
-            text-align: center;
-            font-size: 12px;
-            color: #666;
-        }}
-        .unsubscribe a {{
-            color: #666;
-            text-decoration: underline;
-        }}
     </style>
 </head>
 <body>
@@ -206,14 +196,10 @@ async def send_codes_generated_email(shop_data: dict) -> bool:
                 <div style="font-size: 13px; color: #666;">5 Charlesbank Rd, Newton, MA, 02458</div>
             </div>
         </div>
-        
-        <div class="unsubscribe">
-            <p>If you no longer wish to receive emails from us, you can <a href="mailto:info@bylobyte.com">unsubscribe here</a>.</p>
-        </div>
     </div>
     
     <div class="footer">
-        <p>This is an automated message. Please do not reply to this email.</p>
+        <p>This is an automated message. <a href="mailto:info@bylobyte.com">Click here to unsubscribe</a>.</p>
     </div>
 </body>
 </html>
