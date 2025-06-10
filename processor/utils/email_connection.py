@@ -52,6 +52,11 @@ async def send_email(from_shop: str, to_email: str, body: str, subject: str) -> 
         msg['Subject'] = subject
         msg['From'] = f'"{from_name} (Dyno)" <info@bylobyte.com>'
         msg['To'] = to_email
+        msg['Reply-To'] = 'info@bylobyte.com'
+        
+        # Add headers for better deliverability
+        msg['X-Entity-Ref-ID'] = f'email-{int(datetime.now().timestamp() * 1000)}'
+        msg['List-Unsubscribe'] = '<mailto:info@bylobyte.com>'
         
         # Attach HTML body
         msg.attach(MIMEText(body, 'html'))
@@ -164,6 +169,16 @@ async def send_codes_generated_email(shop_data: dict) -> bool:
             font-size: 12px;
             color: #888888;
         }}
+        .unsubscribe {{
+            margin-top: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }}
+        .unsubscribe a {{
+            color: #666;
+            text-decoration: underline;
+        }}
     </style>
 </head>
 <body>
@@ -190,6 +205,10 @@ async def send_codes_generated_email(shop_data: dict) -> bool:
                 <div style="font-size: 18px; color: #333333; font-weight: 500;">Dyno Bulk Discount Codes</div>
                 <div style="font-size: 13px; color: #666;">5 Charlesbank Rd, Newton, MA, 02458</div>
             </div>
+        </div>
+        
+        <div class="unsubscribe">
+            <p>If you no longer wish to receive emails from us, you can <a href="mailto:info@bylobyte.com">unsubscribe here</a>.</p>
         </div>
     </div>
     
