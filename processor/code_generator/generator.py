@@ -1,6 +1,6 @@
 from . import random, specific, import_codes
 
-def generate_codes(task_name, discount_created):
+def generate_codes(task_name, discount_created, retry_count=0):
     """
     Generate discount codes based on the specified generator type.
     
@@ -12,7 +12,7 @@ def generate_codes(task_name, discount_created):
     """
     code_config = discount_created['code']
     generator_type = discount_created['style']
-    num_codes = code_config['count'] - 1 if task_name == "initialCodeGeneration" else code_config['count']
+    num_codes = retry_count if task_name == "retry" else code_config['count'] - 1 if task_name == "initialCodeGeneration" else code_config['count']
     
     match generator_type:
         case 'random':

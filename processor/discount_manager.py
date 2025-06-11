@@ -180,7 +180,7 @@ async def retry_failed_codes(
         logger.info(f"Retry attempt {retry_count}/{MAX_RETRY_ATTEMPTS} for {len(remaining_unsuccessful)} unsuccessful codes...")
         
         # Generate new codes for retry
-        retry_codes = generate_codes(discount_created, len(remaining_unsuccessful))
+        retry_codes = generate_codes("retry", discount_created, retry_count)
         
         # Upload the retry codes
         successful_codes, unsuccessful_codes = await upload_codes(shop, access_token, retry_codes, discount_id)
