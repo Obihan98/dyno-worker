@@ -181,18 +181,13 @@ async def retry_failed_codes(
         
         # Generate new codes for retry
         retry_codes_batches = generate_codes("retry", discount_created, retry_count)
+        logger.info(f"Retry codes batches: {json.dumps(retry_codes_batches, indent=2)}")
         
         # Flatten the list of batches into a single list
-        retry_codes = [code for batch in retry_codes_batches for code in batch]
-        
-        # Upload the retry codes
-        successful_codes, unsuccessful_codes = await upload_codes(shop, access_token, retry_codes, discount_id)
-        
-        if successful_codes:
-            logger.info(f"Successfully retried {len(successful_codes)} codes in attempt {retry_count}")
+        for code_chunk in retry_codes_batches:
+            successful_codes, unsuccessful_codes = await upload_codes(shop, access_token, code_chunk, discount_id)
             all_successful.extend(successful_codes)
-        
-        remaining_unsuccessful = unsuccessful_codes
+            remaining_unsuccessful = unsuccessful_codes
         
         if remaining_unsuccessful:
             logger.info(f"Still have {len(remaining_unsuccessful)} unsuccessful codes after attempt {retry_count}")
