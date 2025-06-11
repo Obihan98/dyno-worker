@@ -179,16 +179,17 @@ async def retry_failed_codes(
         retry_count += 1
         logger.info(f"Retry attempt {retry_count}/{MAX_RETRY_ATTEMPTS} for {len(remaining_unsuccessful)} unsuccessful codes...")
         
+        # Generate new codes for retry
         retry_codes = generate_codes(discount_created, len(remaining_unsuccessful))
-        _, retry_successful, retry_unsuccessful = await process_discount_codes(
-            shop, access_token, retry_codes, discount_id, discount_created['job_id']
-        )
         
-        if retry_successful:
-            logger.info(f"Successfully retried {len(retry_successful)} codes in attempt {retry_count}")
-            all_successful.extend(retry_successful)
+        # Upload the retry codes
+        successful_codes, unsuccessful_codes = await upload_codes(shop, access_token, retry_codes, discount_id)
         
-        remaining_unsuccessful = retry_unsuccessful
+        if successful_codes:
+            logger.info(f"Successfully retried {len(successful_codes)} codes in attempt {retry_count}")
+            all_successful.extend(successful_codes)
+        
+        remaining_unsuccessful = unsuccessful_codes
         
         if remaining_unsuccessful:
             logger.info(f"Still have {len(remaining_unsuccessful)} unsuccessful codes after attempt {retry_count}")
@@ -427,13 +428,6 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
 
                 update_job_details(shop, job_id, current_batch=batch_num)
 
-        # Upload the CSV file to S3
-        s3_object_name = upload_file(csv_path, csv_filename)
-        
-        # Clean up temporary file
-        if os.path.exists(csv_path):
-            os.remove(csv_path)
-
         # Handle retries for failed codes if needed
         if failed_codes and discount_created['style'] == 'random':
             retry_successful, remaining_unsuccessful = await retry_failed_codes(
@@ -442,6 +436,13 @@ async def process_discount_codes(task_name, shop, access_token, discount_created
             total_successful += len(retry_successful)
             total_unsuccessful = len(remaining_unsuccessful)
             failed_codes = remaining_unsuccessful
+
+        # Upload the CSV file to S3
+        s3_object_name = upload_file(csv_path, csv_filename)
+        
+        # Clean up temporary file
+        if os.path.exists(csv_path):
+            os.remove(csv_path)
 
         # Update final job status
         if isStopped(shop, job_id):
