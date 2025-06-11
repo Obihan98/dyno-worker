@@ -180,7 +180,7 @@ async def retry_failed_codes(
         logger.info(f"Retry attempt {retry_count}/{MAX_RETRY_ATTEMPTS} for {len(remaining_unsuccessful)} unsuccessful codes...")
         
         # Generate new codes for retry
-        retry_codes_batches = generate_codes("retry", discount_created, retry_count)
+        retry_codes_batches = generate_codes("retry", discount_created, len(remaining_unsuccessful))
         logger.info(f"Retry codes batches: {json.dumps(retry_codes_batches, indent=2)}")
         
         # Flatten the list of batches into a single list
