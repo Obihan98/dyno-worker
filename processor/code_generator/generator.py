@@ -22,7 +22,8 @@ def generate_codes(task_name, discount_created, retry_count=0):
                 len_codes=code_config['length'],
                 prefix=code_config['prefix'],
                 suffix=code_config['suffix'],
-                n_codes=num_codes
+                n_codes=num_codes,
+                disallowed_characters=code_config.get('disallowed_characters', [])
             )
         case 'specific':
             return specific.generate_codes(task_name, code_config['specific'])

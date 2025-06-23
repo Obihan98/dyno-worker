@@ -1,6 +1,6 @@
 import random
 
-def generate_codes(allow_letters, allow_numbers, len_codes, prefix, suffix, n_codes):
+def generate_codes(allow_letters, allow_numbers, len_codes, prefix, suffix, n_codes, disallowed_characters=None):
     """
     Generate unique discount codes based on specified parameters.
     
@@ -11,6 +11,7 @@ def generate_codes(allow_letters, allow_numbers, len_codes, prefix, suffix, n_co
         prefix (str): Prefix to add before the random code
         suffix (str): Suffix to add after the random code
         n_codes (int): Number of unique codes to generate
+        disallowed_characters (list): List of characters to exclude from code generation
         
     Returns:
         List of lists, where each inner list contains maximum 250 codes
@@ -24,6 +25,13 @@ def generate_codes(allow_letters, allow_numbers, len_codes, prefix, suffix, n_co
 
     if allow_numbers:
         characters.extend(numbers)
+
+    # Remove disallowed characters from the character set
+    if disallowed_characters:
+        characters = [c for c in characters if c not in disallowed_characters]
+
+    if not characters:
+        raise ValueError("No valid characters available for code generation after applying restrictions")
 
     def generate_random_code():
         """Generate a single random code based on the character set."""
